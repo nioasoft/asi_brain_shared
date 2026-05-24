@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asi — Security & Code-Quality Reference</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #6a6a6a;
+    --border: #e0e0e0;
+    --accent: #2563eb;
+    --warn: #d97706;
+    --danger: #dc2626;
+    --ok: #16a34a;
+    --code-bg: #f4f4f4;
+    --code-border: #d4d4d4;
+    --section-bg: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --fg: #e8e8e8;
+      --muted: #9a9a9a;
+      --border: #333333;
+      --accent: #60a5fa;
+      --warn: #fbbf24;
+      --danger: #f87171;
+      --ok: #4ade80;
+      --code-bg: #232323;
+      --code-border: #404040;
+      --section-bg: #222222;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.55;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+  header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.2rem;
+    margin-bottom: 2rem;
+  }
+  h1 {
+    font-size: 1.8rem;
+    margin: 0 0 0.4rem;
+    font-weight: 600;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+  .updated {
+    display: inline-block;
+    margin-top: 0.6rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  nav.toc {
+    background: var(--section-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 2.5rem;
+  }
+  nav.toc h2 {
+    font-size: 1rem;
+    margin: 0 0 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  nav.toc ol { margin: 0; padding-left: 1.4rem; }
+  nav.toc li { margin: 0.25rem 0; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+  nav.toc ol ol { padding-left: 1.2rem; font-size: 0.92rem; }
+  section.major {
+    background: var(--section-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.4rem 1.6rem;
+    margin-bottom: 2rem;
+  }
+  section.major h2 {
+    font-size: 1.35rem;
+    margin: 0 0 0.8rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 2px solid var(--accent);
+    display: inline-block;
+  }
+  section.major h3 {
+    font-size: 1.1rem;
+    margin: 1.6rem 0 0.6rem;
+    color: var(--fg);
+  }
+  section.major h4 {
+    font-size: 0.98rem;
+    margin: 1.1rem 0 0.4rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  code, pre {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.88em;
+  }
+  code {
+    background: var(--code-bg);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    border: 1px solid var(--code-border);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 6px;
+    padding: 0.9rem 1.1rem;
+    overflow-x: auto;
+    line-height: 1.45;
+  }
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.86em;
+  }
+  blockquote {
+    border-left: 3px solid var(--accent);
+    margin: 0.8rem 0;
+    padding: 0.2rem 0 0.2rem 1rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .pill {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    margin-right: 0.4rem;
+  }
+  .pill.ok { background: #dcfce7; color: #15803d; }
+  .pill.warn { background: #fef3c7; color: #b45309; }
+  .pill.danger { background: #fee2e2; color: #b91c1c; }
+  .pill.info { background: #dbeafe; color: #1e40af; }
+  @media (prefers-color-scheme: dark) {
+    .pill.ok { background: #14532d; color: #86efac; }
+    .pill.warn { background: #78350f; color: #fcd34d; }
+    .pill.danger { background: #7f1d1d; color: #fca5a5; }
+    .pill.info { background: #1e3a8a; color: #93c5fd; }
+  }
+  .note {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    padding: 0.7rem 1rem;
+    margin: 1rem 0;
+    color: #78350f;
+  }
+  .note strong { color: #92400e; }
+  @media (prefers-color-scheme: dark) {
+    .note { background: #422006; border-color: #78350f; color: #fde68a; }
+    .note strong { color: #fef3c7; }
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 0.5rem 0.8rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--code-bg);
+    font-weight: 600;
+  }
+  a { color: var(--accent); }
+  ul, ol { margin: 0.4rem 0; padding-left: 1.5rem; }
+  li { margin: 0.2rem 0; }
+  .copy-block {
+    position: relative;
+  }
+  .copy-block::before {
+    content: "Copy-paste this:";
+    display: block;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  hr {
+    border: 0;
+    border-top: 1px solid var(--border);
+    margin: 1.5rem 0;
+  }
+  .meta {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 0.3rem 0 0.8rem;
+  }
+  .source-link {
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  details {
+    margin: 0.6rem 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 0.9rem;
+    background: var(--code-bg);
+  }
+  details summary {
+    cursor: pointer;
+    font-weight: 500;
+  }
+  details[open] summary {
+    margin-bottom: 0.6rem;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>Security &amp; Code-Quality Reference</h1>
+  <div class="subtitle">For Asi's Next.js client projects + crypto bot infrastructure</div>
+  <span class="updated">Last updated: 2026-05-23 · Living document — append new findings as we learn them</span>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#how-to-use">How to use this document</a></li>
+    <li><a href="#runbook">The 30-min security audit runbook (4 steps)</a>
+      <ol>
+        <li><a href="#step-1">Step 1 — npm audit (dependency CVEs)</a></li>
+        <li><a href="#step-2">Step 2 — IDOR / auth boundary tests</a></li>
+        <li><a href="#step-3">Step 3 — Secrets hygiene</a></li>
+        <li><a href="#step-4">Step 4 — Claude Code skills (<code>/security-review</code> + <code>/simplify</code>)</a></li>
+      </ol>
+    </li>
+    <li><a href="#tools">Tools &amp; skills inventory</a>
+      <ol>
+        <li><a href="#tools-builtin">Built-in slash commands</a></li>
+        <li><a href="#tools-installed">Already installed on Asi's machine</a></li>
+        <li><a href="#tools-watching">Tools to evaluate</a></li>
+      </ol>
+    </li>
+    <li><a href="#reels">Reel / video summaries</a></li>
+    <li><a href="#prompts">Reusable prompts (copy-paste)</a></li>
+    <li><a href="#bot-patterns">Bot code-quality patterns we've learned</a></li>
+    <li><a href="#api-claims">OWASP-grounded API security claims (fact-checked)</a></li>
+    <li><a href="#design-skills">Frontend design skills (Emil Kowalski · Impeccable · Taste)</a></li>
+    <li><a href="#changelog">Document changelog</a></li>
+  </ol>
+</nav>
+
+<section class="major" id="how-to-use">
+<h2>1. How to use this document</h2>
+
+<p>This file lives at <code>~/Dropbox/asi_brain_shared/asi_security_reference.html</code> (Dropbox-synced — moved from iCloud on 2026-05-23 because iCloud is full). Open it in any browser to read.</p>
+
+<h3>To audit one of your projects on the MacBook</h3>
+<ol>
+  <li>Open <strong>Claude Code</strong> in the project directory (e.g., <code>~/Projects/Bashier/</code>).</li>
+  <li>Open this HTML in the browser side-by-side, or just paste the relevant section into the chat.</li>
+  <li>Tell the new Claude session: <em>"Run the 4-step security runbook from this reference on this project. Report PASS/FAIL per step with file:line citations."</em></li>
+  <li>Review the report. Ask Claude to fix high-severity items one at a time. Commit between fixes.</li>
+</ol>
+
+<h3>To update this document</h3>
+<p>When we learn a new pattern, find a new bug class, or evaluate a new tool — append to the relevant section and add a row to the <a href="#changelog">changelog</a>. The HTML is structured so new entries can be dropped into existing sections without restructuring.</p>
+
+<div class="note">
+<strong>Personal note from Claude:</strong> this is a living document. When in doubt, prefer reading the latest version of <code>security_audit_runbook.md</code> (same iCloud folder) for the procedural detail; this HTML is the index + browsable view + context.
+</div>
+</section>
+
+<section class="major" id="runbook">
+<h2>2. The 30-min security audit runbook</h2>
+
+<p>Four steps. Apply to any Next.js / Node.js project before shipping to a client. The whole thing takes about 30 minutes once you know the moves.</p>
+
+<h3 id="step-1">Step 1 — Dependency vulnerabilities (npm audit)</h3>
+<p><strong>Goal:</strong> Catch known CVEs in installed packages.</p>
+
+<div class="copy-block">
+<pre><code># In the project root:
+npm audit --omit=dev          # production deps only
+npm audit                     # everything
+npm outdated                  # what's old</code></pre>
+</div>
+
+<h4>How to read the output</h4>
+<ul>
+  <li><span class="pill danger">Critical / High</span> Must fix before shipping. Try <code>npm audit fix</code> first; if that fails, manually upgrade the package.</li>
+  <li><span class="pill warn">Moderate</span> Fix if exploitable in your usage path (look at the CWE description).</li>
+  <li><span class="pill info">Low / Informational</span> Can ignore if the vulnerable code path is not reachable.</li>
+</ul>
+
+<h4>Common gotchas</h4>
+<ul>
+  <li><code>npm audit fix --force</code> can break the app — run tests after. Prefer manual upgrade for major-version bumps.</li>
+  <li>If lockfile is <code>pnpm-lock.yaml</code> or <code>yarn.lock</code>, use <code>pnpm audit</code> / <code>yarn audit</code> instead.</li>
+  <li>Next.js projects: pay extra attention to <code>next</code> itself, <code>@auth/*</code>, anything that touches server actions.</li>
+</ul>
+
+<h3 id="step-2">Step 2 — Auth boundary tests (IDOR — "listed from users")</h3>
+<p><strong>Goal:</strong> Verify that User A cannot read or modify User B's data by tweaking IDs in URLs or API bodies.</p>
+
+<div class="note">
+This is <strong>the single highest-value test</strong> because IDOR (Insecure Direct Object Reference) is the most common and most damaging bug in CRUD apps. Having a login page is <em>not</em> the same as having authorization.
+</div>
+
+<h4>Manual test (~10 min per app)</h4>
+<ol>
+  <li>Create two test users: <code>alice@test.com</code> and <code>bob@test.com</code>.</li>
+  <li>Log in as Alice. Create a resource (a record, an order, a profile, whatever the app owns). Note its ID — e.g., <code>/api/orders/42</code>.</li>
+  <li>Open Network tab in browser dev tools. Find the API call to fetch order 42. Note its URL.</li>
+  <li>In another browser / incognito, log in as Bob.</li>
+  <li>From Bob's session, directly request Alice's resource:
+    <ul>
+      <li>URL approach: paste <code>https://app.example.com/orders/42</code> in Bob's browser.</li>
+      <li>API approach: in Bob's dev console, run <code>fetch('/api/orders/42').then(r =&gt; r.json()).then(console.log)</code></li>
+    </ul>
+  </li>
+  <li><span class="pill ok">PASS</span> Bob gets <code>403 Forbidden</code> or <code>404 Not Found</code>.<br>
+      <span class="pill danger">FAIL</span> Bob sees Alice's data.</li>
+</ol>
+
+<h4>Automated grep (find suspicious code patterns)</h4>
+<div class="copy-block">
+<pre><code># Find API routes that fetch by ID but don't filter by ownership
+grep -rn "findUnique\|findFirst\|findOne" --include="*.ts" --include="*.js" -A 3 . \
+  | grep -i "where.*id" \
+  | grep -v "userId\|user_id\|ownerId\|owner_id"</code></pre>
+</div>
+<p>Any match that doesn't filter by <code>userId</code>/<code>ownerId</code> is suspicious — it returns the record regardless of who's asking.</p>
+
+<h4>Common Next.js / API-route patterns</h4>
+<table>
+<tr><th>Pattern</th><th>Verdict</th></tr>
+<tr><td><code>prisma.order.findUnique({ where: { id } })</code></td><td><span class="pill danger">FAIL</span> unless followed by an ownership check.</td></tr>
+<tr><td><code>prisma.order.findUnique({ where: { id, userId: session.user.id } })</code></td><td><span class="pill ok">PASS</span></td></tr>
+<tr><td>Server actions / route handlers that take <code>params.id</code> from the URL and look it up without filtering by session</td><td><span class="pill danger">FAIL</span></td></tr>
+</table>
+
+<div class="note">
+<strong>Don't forget mutation endpoints.</strong> Also test:
+<ul>
+<li><code>PATCH /api/orders/42</code> from Bob's session with a body change — does it succeed? If yes, FAIL.</li>
+<li><code>DELETE /api/orders/42</code> from Bob's session — does it succeed? If yes, FAIL.</li>
+</ul>
+</div>
+
+<p><strong>Fix pattern:</strong> every database read/write inside a route should be scoped by the current user's session — never trust an ID from the URL or body on its own.</p>
+
+<h3 id="step-3">Step 3 — Secrets hygiene</h3>
+<p><strong>Goal:</strong> No secrets in code, no secrets in front-end bundles, no secrets in Git history.</p>
+
+<h4>3a — Is <code>.env</code> tracked by Git?</h4>
+<div class="copy-block">
+<pre><code>git ls-files | grep -E "^\.env($|\.)"</code></pre>
+</div>
+<p>Expected output: <strong>EMPTY.</strong> Any <code>.env</code> file shown is committed and likely exposed.</p>
+
+<h4>3b — Were secrets ever committed?</h4>
+<div class="copy-block">
+<pre><code>git log -p --all -S "API_KEY" --source -- "*.env*" 2&gt;/dev/null | head -50
+git log -p --all -S "SECRET"  --source                2&gt;/dev/null | head -50
+git log -p --all -S "sk_live" --source                2&gt;/dev/null | head -30   # Stripe live keys
+git log -p --all -S "AKIA"    --source                2&gt;/dev/null | head -30   # AWS access keys</code></pre>
+</div>
+<p>Any output = a secret was once committed. <strong>Rotate it today.</strong> Removing from git history doesn't help — assume it's already scraped by bots indexing GitHub.</p>
+
+<h4>3c — NEXT_PUBLIC_* leaks into the browser?</h4>
+<div class="copy-block">
+<pre><code>grep -rn "NEXT_PUBLIC_" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . \
+  | grep -i -E "SECRET|API_KEY|TOKEN|PASSWORD|PRIVATE"</code></pre>
+</div>
+<p>Anything matching = bug. <code>NEXT_PUBLIC_*</code> gets bundled into the browser. Move to server-only.</p>
+
+<h4>3d — Hardcoded secrets in code?</h4>
+<div class="copy-block">
+<pre><code>grep -rEn "(sk_live_|sk_test_|AKIA[A-Z0-9]{16}|ghp_[A-Za-z0-9]{36})" \
+  --include="*.ts" --include="*.tsx" --include="*.js" --include="*.json" .</code></pre>
+</div>
+<p>Should return nothing. Matches indicate Stripe live, Stripe test, AWS access, GitHub PAT respectively.</p>
+
+<h4>Fix pattern</h4>
+<ul>
+  <li>Anything in <code>.env</code> should be server-side only.</li>
+  <li>For Next.js, <strong>only</strong> prefix with <code>NEXT_PUBLIC_</code> if it's something safe to ship to a browser (e.g., a public Supabase anon key, an analytics ID). Service-role keys / private API keys → never.</li>
+  <li>If a secret was ever committed → <strong>rotate it today</strong>.</li>
+</ul>
+
+<h3 id="step-4">Step 4 — One-command quality pass (Claude Code skills)</h3>
+<p>If the project is opened in Claude Code, two built-in commands cover most of what we did above plus more:</p>
+
+<table>
+<tr><th>Command</th><th>What it does</th></tr>
+<tr><td><code>/security-review</code></td><td>Multi-agent security scan. Reports findings + suggested fixes.</td></tr>
+<tr><td><code>/simplify</code></td><td>Code cleanup pass. Run separately from security fixes.</td></tr>
+</table>
+
+<h4>Workflow</h4>
+<ol>
+  <li>Commit a clean checkpoint before running these (so you can revert).</li>
+  <li><code>/security-review</code> first — read the findings, ask Claude to fix the high-severity ones, commit.</li>
+  <li><code>/simplify</code> second — separate commit for code cleanup.</li>
+  <li>Both run in cloud (paid). Use them for actual deliveries, not for every save.</li>
+</ol>
+</section>
+
+<section class="major" id="tools">
+<h2>3. Tools &amp; skills inventory</h2>
+
+<h3 id="tools-builtin">3.1 Built-in Claude Code slash commands</h3>
+<table>
+<tr><th>Command</th><th>Purpose</th><th>When to use</th></tr>
+<tr><td><code>/security-review</code></td><td>Multi-agent security scan of the current branch</td><td>Before shipping any client project</td></tr>
+<tr><td><code>/simplify</code></td><td>Cleanup &amp; quality pass on changed files</td><td>Separate commit, after security pass</td></tr>
+<tr><td><code>/review</code></td><td>Code review of a PR</td><td>When reviewing your own or someone else's PR</td></tr>
+<tr><td><code>/init</code></td><td>Initialize <code>CLAUDE.md</code> in a new repo</td><td>First-time onboarding a project to Claude</td></tr>
+</table>
+
+<h3 id="tools-installed">3.2 Already installed on Asi's machine</h3>
+
+<h4>Custom security scanner (<code>~/asibrain/security-scanner/</code>)</h4>
+<p>Asi's own scanner — 43 checks across HTTP security headers, DNS/email, SSL/TLS, security misconfiguration. AI-optimized Markdown report output.</p>
+<div class="copy-block">
+<pre><code># From ~/asibrain/security-scanner/:
+python main.py https://example.com
+python main.py https://example.com --json
+python main.py https://example.com --category headers
+python main.py https://example.com --report --report-file /tmp/report.md
+python main.py https://example.com --he  # Hebrew output</code></pre>
+</div>
+<p>Exit code is non-zero if the grade is D or F — usable in CI. Supports <code>--timeout</code> and <code>--category</code> filtering.</p>
+<p>Existing reports generated by this scanner:</p>
+<ul>
+  <li><code>security_report_avi-digital.co.il_20260408_104404.md</code></li>
+  <li><code>security_report_www.goalzo.co.il_20260409_211627.md</code></li>
+</ul>
+
+<h4>RTK (Rust Token Killer)</h4>
+<p>Token-optimization proxy for Claude Code (60–90% savings on dev operations). Installed with hook patched into <code>~/.claude/settings.json</code> on 2026-05-15. See <code>~/.claude/RTK.md</code> for usage.</p>
+
+<h3 id="tools-watching">3.3 Tools to evaluate</h3>
+
+<h4>Cloak Browser <span class="pill warn">unverified</span></h4>
+<p><strong>What:</strong> Custom Chromium build with 16 patches compiled into the source itself (not runtime patches like Playwright-stealth). Drop-in replacement for Playwright.</p>
+<p><strong>Why interesting:</strong> Reportedly passes reCAPTCHA v3 with score 0.9 (human-equivalent), Cloudflare Turnstile, fingerprint.js, 14/14 browserscan stealth tests. Could re-open scraping for venues that block your REST API (Bitunix 403, Binance 418-ban).</p>
+<p><strong>How to find:</strong> GitHub search for "Cloak Browser".</p>
+<p><strong>Before installing:</strong></p>
+<ol>
+  <li>Read the README and the patch list under <code>patches/</code> to make sure nothing exotic is happening to your system.</li>
+  <li>Look at star count, age, and contributors. If it's brand new with no track record, treat any binary download with caution — prefer building from source.</li>
+  <li>Run it inside a Docker container or a VM the first few times to limit blast radius.</li>
+</ol>
+<p><strong>Verdict:</strong> Worth a 30-min exploration. Useful if/when you want to retry scraping Bitunix L2 depth or Binance candles after an IP/API ban. Don't put it in the live-trading critical path until you've stress-tested it for at least a week.</p>
+
+<h4>Giscard / LLM Guard / Rebuff <span class="pill warn">awareness only</span></h4>
+<p>Three LLM-app security tools mentioned in an IG reel on 2026-05-17. Relevant only if/when you ship a public-facing LLM-powered product.</p>
+<ul>
+  <li><strong>Giscard</strong> — pre-deployment QA. Finds bugs/biases in your model before production.</li>
+  <li><strong>LLM Guard</strong> — runtime guardrails. The "bouncer" — keeps the LLM behaving and users behaving.</li>
+  <li><strong>Rebuff</strong> — prompt injection defense. Blocks prompt injection at the input boundary.</li>
+</ul>
+<p>None of these are needed today for the trading bots (no public LLM endpoint). Re-evaluate when you ship an AI-facing client project.</p>
+
+<h4>Forge 8B + scaffolding pattern <span class="pill info">takeaway only</span></h4>
+<p>YouTube short on 2026-05-23 claimed an 8B local model called "Forge" beats Claude on agent tasks when wrapped in scaffolding (53% raw → 99% with guardrails + validation + retries + forced structured output; Claude at 87% unguarded).</p>
+<p><strong>Specific claim flagged as clickbait</strong> — unfair comparison (Forge with 4 layers vs Claude raw), no specific benchmark named. <strong>But the general lesson is correct:</strong> when you call an LLM inside a pipeline (e.g., signal filter, news analysis), wrapping with these layers usually gives 20–40% stability gain without changing the model:</p>
+<ul>
+  <li>JSON Schema validation on every output</li>
+  <li>Retry on parse failure (3 attempts with feedback)</li>
+  <li>Structured output mode (<code>response_format: json_object</code> if supported)</li>
+</ul>
+</section>
+
+<section class="major" id="reels">
+<h2>4. Reel / video summaries</h2>
+
+<p>The bite-sized takeaways from videos Asi sent, grouped by topic. Cite the date and the original platform.</p>
+
+<h3>4.1 Security-related reels</h3>
+
+<h4>30-minute DIY security audit <span class="meta">(IG · 2026-05-23 · reel DYmoTKBgQjt)</span></h4>
+<ol>
+  <li><strong>npm audit</strong> — fix red (Critical/High), update yellow (Moderate), ignore green (Low) if unreachable.</li>
+  <li><strong>Auth boundary test</strong> — log in as User A, try to access User B's data by changing IDs. If it works, you have a login page, not authorization (IDOR).</li>
+  <li><strong>Env vars review</strong> — secrets in code? in committed <code>.env</code>? in front-end? Anything in front-end is already exposed — rotate today.</li>
+</ol>
+<p>Full procedure baked into <a href="#runbook">Section 2 (runbook)</a> above.</p>
+
+<h4>Pre-deploy Claude Code workflow <span class="meta">(IG · 2026-05-23 · reel DYe5e2qJgoP)</span></h4>
+<ol>
+  <li>Commit a backup checkpoint.</li>
+  <li><code>/simplify</code> with parallel agents on every file (or section by section to limit scope).</li>
+  <li><code>/security-review</code> to find auth flaws, exposed data, exploitable patterns.</li>
+  <li>Ask Claude to implement the suggested changes.</li>
+</ol>
+
+<h4>Promo for unnamed security-audit toolkit <span class="meta">(IG · 2026-05-23 · reel DYqMtIhsxUC)</span></h4>
+<p><span class="pill warn">skip</span> Tool not named clearly. Claims 51 skills + 15 slash commands + 500+ vulnerability patterns. <strong>Not recommended</strong> — Asi already has <code>/security-review</code> built-in and a custom scanner. Only add a third-party security tool if a specific gap is identified.</p>
+
+<h4>API security: 3 things to fix today <span class="meta">(IG · 2026-05-02 · @jordan_kodes · DXz5iIwxiuF)</span></h4>
+<p>See <a href="#api-claims">Section 7 — OWASP-grounded API security claims</a> for the fact-checked breakdown.</p>
+
+<h3>4.2 Performance &amp; scaling</h3>
+
+<h4>Surviving your first 100 users <span class="meta">(IG · 2026-05-23 · reel DYkAobpgwjI)</span></h4>
+<ol>
+  <li><strong>Connection pooling</strong> — Supabase has it built in. Self-hosted Postgres → use PgBouncer. One config change, immediate relief.</li>
+  <li><strong>Caching layer</strong> — Redis / Upstash / in-memory. Cache anything that doesn't change every second. API response 800ms → 50ms, DB load down 80%.</li>
+  <li><strong>Load test before launch</strong> — k6 or artillery, both free, ~30 min setup. Simulate 100 concurrent users. Fail in the test, not in production.</li>
+</ol>
+<p><strong>Relevant for:</strong> client Next.js launches (Bashier, gan-tair, etc.) when you expect any meaningful traffic at launch. Add k6 to a pre-launch checklist.</p>
+
+<h3>4.3 Scraping &amp; automation</h3>
+
+<h4>Cloak Browser <span class="meta">(IG · 2026-05-23 · reel DYnWDihzQqF)</span></h4>
+<p>See <a href="#tools-watching">Section 3.3 — Tools to evaluate</a>.</p>
+
+<h3>4.4 LLM &amp; agent infrastructure</h3>
+
+<h4>Giscard / LLM Guard / Rebuff <span class="meta">(IG · 2026-05-17)</span></h4>
+<p>See <a href="#tools-watching">Section 3.3 — Tools to evaluate</a>.</p>
+
+<h4>Forge 8B + scaffolding pattern <span class="meta">(YouTube short · 2026-05-23 · t67C2WeDNvI)</span></h4>
+<p>See <a href="#tools-watching">Section 3.3 — Tools to evaluate</a>.</p>
+
+<h4>3 Claude Code design skills for frontend <span class="meta">(IG · 2026-05-09 · reel DX_q_jqoLWN)</span></h4>
+<p>Emil Kowalski (motion) + Impeccable (<code>/polish</code>) + Taste (anti-AI-slop). See <a href="#design-skills">Section 8 — Frontend design skills</a> for the full breakdown with install links.</p>
+
+<h3>4.5 Supply-chain attacks</h3>
+
+<h4>Shai-Hulud npm/PyPI compromise <span class="meta">(FB video · 2026-05-15)</span></h4>
+<p>Audited the USDC maker bot's dependencies on 2026-05-17 against the list of compromised packages from the disclosure. Result: clean — no exposure. Re-audit any new <code>requirements.txt</code> or <code>package.json</code> additions against published IOC lists for the next 6 months.</p>
+</section>
+
+<section class="major" id="prompts">
+<h2>5. Reusable prompts (copy-paste)</h2>
+
+<p>Prompts we've crafted in past sessions, ready to paste into a new Claude session.</p>
+
+<h3>5.1 Independent fact-checker for security claims in social media</h3>
+<p><strong>Use when:</strong> a reel/short makes a security claim and you want a grounded second opinion.</p>
+<div class="copy-block">
+<pre><code>Fact-check the following security claims from a software engineer's social media post.
+For each, cite OWASP API Security Top 10 (2023 edition) or OWASP Top 10 web (2021 edition).
+Rate each claim: TRUE / TRUE-BUT-INCOMPLETE / MISLEADING / FALSE — with reasoning.
+Mention what mitigation is more important than what's stated.
+
+Claims:
+1) [claim 1]
+2) [claim 2]
+3) [claim 3]
+
+Output &le; 300 words. Cite OWASP IDs/items where applicable.</code></pre>
+</div>
+
+<h3>5.2 Run the runbook on this project</h3>
+<p><strong>Use when:</strong> you've opened Claude Code in a project directory and want the full audit.</p>
+<div class="copy-block">
+<pre><code>You are an auditing security reviewer. Open the file at
+~/Library/Mobile Documents/com~apple~CloudDocs/security_audit_runbook.md
+and run all 4 steps on the current project.
+
+For each step:
+- Execute the commands/greps from the runbook.
+- Report PASS / FAIL with specific file:line citations for failures.
+- For Step 2 (IDOR), list every database lookup-by-id that doesn't filter by user/owner.
+
+After the report, propose the top 3 fixes ranked by severity.
+Do not make any code changes yet — only report.</code></pre>
+</div>
+
+<h3>5.3 Cloak Browser evaluation</h3>
+<p><strong>Use when:</strong> you want to seriously evaluate the Cloak Browser tool.</p>
+<div class="copy-block">
+<pre><code>Find the "Cloak Browser" project on GitHub. Then:
+1. Read the README and patches/ directory. Summarize what each of the 16 patches does.
+2. Check star count, contributor count, latest commit date, and whether there's a CVE
+   or security advisory against it.
+3. Look at the issue tracker for any reports of malicious behavior, data exfiltration,
+   or unwanted telemetry.
+4. Report: GO / GO-WITH-SANDBOX / SKIP, with reasoning.
+
+If GO-WITH-SANDBOX, also produce a Dockerfile that runs Cloak Browser with no
+network access except to a configurable allowlist of domains.</code></pre>
+</div>
+
+<h3>5.4 Add LLM scaffolding to a bot</h3>
+<p><strong>Use when:</strong> you have a Python script that calls an LLM and you want to harden it.</p>
+<div class="copy-block">
+<pre><code>I have a Python function that calls an LLM and parses the output as JSON.
+Wrap it with the standard scaffolding pattern:
+
+1. JSON Schema validation on every output (use jsonschema or pydantic).
+2. Retry on parse failure — 3 attempts. On failure, feed the parse error back to the
+   model as the next user message ("Your previous response failed validation
+   because X. Try again.")
+3. Use the model's structured output mode (response_format=json_object for OpenAI;
+   tool_use / JSON mode for Claude).
+4. Log every retry to a structured log so I can measure parse-fail rates over time.
+
+Don't change my prompt logic — only the wrapper.</code></pre>
+</div>
+
+<h3>5.5 Pre-deploy checklist for a client project</h3>
+<p><strong>Use when:</strong> about to deliver a client Next.js project.</p>
+<div class="copy-block">
+<pre><code>This project is about to be delivered to a paying client. Run a pre-deploy review:
+
+1. Security: full runbook in
+   ~/Library/Mobile Documents/com~apple~CloudDocs/security_audit_runbook.md
+2. Performance: identify any obvious N+1 queries, missing indexes, and unbounded
+   list endpoints (no pagination + no rate limit). Suggest fixes, don't apply yet.
+3. Scaling: confirm DB connection pooling is configured (Supabase pgbouncer or
+   self-hosted equivalent). If not, propose minimal config changes.
+4. Operations: confirm there's a basic /health endpoint and that error logging
+   goes somewhere persistent (not just console.log).
+
+For each finding give file:line and a 1-line fix. Don't write code yet.</code></pre>
+</div>
+</section>
+
+<section class="major" id="bot-patterns">
+<h2>6. Bot code-quality patterns we've learned</h2>
+
+<p>Real bugs and fixes we've shipped in the trading bots. Not security per se, but pattern-spotting that transfers to client projects too. Each is worth checking against new code.</p>
+
+<table>
+<tr><th>Pattern</th><th>What we fixed</th><th>Lesson for next time</th></tr>
+<tr>
+  <td>Exchange-timestamp vs monotonic-time</td>
+  <td>OrderFlowEngine was using <code>time.monotonic()</code> for trade timing, causing live ≠ paper signal divergence. Replaced with exchange-supplied trade timestamps.</td>
+  <td>For anything time-sensitive that needs to match a replay or another engine, use the canonical timestamp from the source — never local clock.</td>
+</tr>
+<tr>
+  <td>Equity measurement</td>
+  <td>Bot performance was measured by cycle count and <code>total_profit</code> accumulator. Wrong — partial fills inflate it. Switched to <code>equity_end - equity_start</code>.</td>
+  <td>For any performance metric, measure the bottom-line state change, not an event counter.</td>
+</tr>
+<tr>
+  <td>Frozen-pot equity bug</td>
+  <td><code>compute_total_equity()</code> dropped pending-LIMIT capital because <code>margin or frozen</code> short-circuited. Fixed: sum both fields.</td>
+  <td>Python's <code>or</code> is value-short-circuit, not None-coalesce. Use <code>x if x is not None else y</code> when both might be zero.</td>
+</tr>
+<tr>
+  <td>Drift-aware staleness</td>
+  <td>Stale-buy detection compared price to <code>bid</code> instead of <code>bid - N*tick</code>, so every BUY was canceled every 3 min → lost queue position. Added drift threshold + longer timeout.</td>
+  <td>If you cancel-and-replace orders, you lose your queue position. Make staleness rules tolerant unless price has actually moved meaningfully.</td>
+</tr>
+<tr>
+  <td>Trail-state interference with reset</td>
+  <td>Trail logic re-fired infinitely and interfered with stuck-SELL recovery. Fixed with single-fire flag + gated on <code>not awaiting_reset_exit_fill</code> + cleared in <code>_record_sell_reset</code>.</td>
+  <td>State-machine flags need explicit reset paths. Don't trust other state to clear yours.</td>
+</tr>
+<tr>
+  <td>WS connection split per channel (Bitunix)</td>
+  <td>Single WS connection for multiple channels silently dropped order-flow signals on big-cap coins. Required 1-connection-per-channel.</td>
+  <td>WS providers vary widely in multiplexing tolerance. Test signal coverage per channel before trusting a shared connection.</td>
+</tr>
+<tr>
+  <td>Telethon catchup on startup <span class="pill warn">TODO</span></td>
+  <td>Signal copier bots missed signals during a 13-hour disconnect because <code>NewMessage</code> doesn't fire for messages received while offline.</td>
+  <td>On bot startup, always backfill from the last seen message ID forward. <strong>Still not implemented</strong> — add this when next touching the copier bots.</td>
+</tr>
+</table>
+</section>
+
+<section class="major" id="api-claims">
+<h2>7. OWASP-grounded API security claims (fact-checked)</h2>
+
+<p>From the @jordan_kodes Instagram reel on 2026-05-02 (<code>DXz5iIwxiuF</code>). Saved at <code>~/asibrain/links/2026-05-02-api-security-3-things.md</code>.</p>
+
+<h3>Claim 1: "Open endpoints — if code doesn't check who's making requests, anybody can hit your data"</h3>
+<p><span class="pill ok">TRUE</span></p>
+<ul>
+  <li>OWASP API Security Top 10 (2023): <strong>API1 BOLA</strong> (Broken Object Level Authorization) + <strong>API2 Broken Authentication</strong>.</li>
+  <li><strong>Important nuance:</strong> authn ≠ authz. An endpoint can require login and still let user A read user B's data.</li>
+  <li><strong>Mitigation:</strong> every object-level read must check <code>current_user.id == resource.owner_id</code> (or via a role/permission system).</li>
+</ul>
+
+<h3>Claim 2: "No pagination = DB dump"</h3>
+<p><span class="pill warn">TRUE BUT MISLEADING</span></p>
+<ul>
+  <li>Pagination alone is <strong>not a security control</strong>. Without rate-limiting, an attacker just loops <code>?page=1...N</code>.</li>
+  <li>Real mitigations: (a) per-user data filtering on every list endpoint, (b) rate-limiting per IP / user / API key, (c) hard page-size cap (clamp <code>?limit=10000</code> to 100), (d) authorization on every row returned.</li>
+  <li>Pagination is fundamentally a <strong>performance / UX</strong> feature. The closest OWASP mapping is <strong>API4 Unrestricted Resource Consumption</strong>.</li>
+</ul>
+
+<h3>Claim 3: "Excessive error messages tell attackers how your system works"</h3>
+<p><span class="pill ok">TRUE</span></p>
+<ul>
+  <li>OWASP Web Top 10 (2021): <strong>A05 Security Misconfiguration</strong>; OWASP API Top 10: <strong>API8</strong>.</li>
+  <li>Raw stack traces leak: database engine + version, ORM + framework versions (CVE matching), file paths, library versions.</li>
+  <li><strong>Mitigation:</strong> production returns a generic <code>500 Internal Server Error</code> + a request ID. Full trace goes to your logging system only (never to the client).</li>
+</ul>
+</section>
+
+<section class="major" id="design-skills">
+<h2>8. Frontend design skills (Emil Kowalski · Impeccable · Taste)</h2>
+
+<p>Three Claude Code skills that make AI-built frontends stop looking like AI. Asi sent the original reel on 2026-05-09 (IG reel <code>DX_q_jqoLWN</code>). Direct quote from the reel: <em>"You can spot an AI-built website in 2 seconds — generic gradients, Inter font, zero motion. 3 skills fix every bit of that."</em></p>
+
+<p><strong>Why this section exists in a security/code-quality doc:</strong> Asi runs ~30 Next.js client projects. Aesthetic differentiation is part of code quality for client work — a delivery that looks generic is a delivery the client notices first.</p>
+
+<div class="note">
+<strong>None of these are installed on Asi's Mac mini.</strong> Research only — Asi will install on the MacBook M4 Max when starting a project that needs it. Don't auto-install.
+</div>
+
+<h3>8.1 Emil Kowalski's motion skill</h3>
+<p><strong>What it does:</strong> Adds real motion with proper easing to UI code. Distilled from Emil Kowalski's <em>Animations on the Web</em> course and his open-source projects (Sonner toast library, vaul drawer, etc.). The skill reviews UI code and gives before/after tables, catching common animation mistakes.</p>
+
+<p><strong>What it enforces:</strong></p>
+<ul>
+  <li>UI animations under 300ms (longer = feels sluggish).</li>
+  <li>Custom easing curves instead of CSS defaults (<code>ease</code>, <code>ease-in-out</code> — they look "vibe-coded").</li>
+  <li>Performance optimizations (transforms over layout properties, <code>will-change</code> hints).</li>
+  <li>Accessibility: every animation respects <code>prefers-reduced-motion</code>.</li>
+</ul>
+
+<p><strong>Where to get it (multiple options):</strong></p>
+<ul>
+  <li><strong>Official from Emil Kowalski himself:</strong> <a href="https://emilkowal.ski/skill">emilkowal.ski/skill</a> — installable via <code>npx skills add emilkowalski/skill</code>. Works with Claude Code, Codex, Cursor.</li>
+  <li><strong>Community fork (Next.js focused):</strong> <a href="https://github.com/delphi-ai/animate-skill">delphi-ai/animate-skill</a> on GitHub.</li>
+  <li><strong>Multi-author motion skill (Emil + Jakub Krehel + Jhey Tompkins):</strong> <a href="https://github.com/kylezantos/design-motion-principles">kylezantos/design-motion-principles</a> — supports both build mode and audit mode.</li>
+  <li><strong>Light "drop into project":</strong> <a href="https://gist.github.com/corysimmons/1e2f64603ae234602f92dafe2b549ea9">corysimmons gist</a> — single <code>SKILL.md</code> file you drop in <code>~/your-project/.claude/skills/emil-anim/SKILL.md</code> and then tell Claude: <em>"use the emil-anim skill to audit and improve my frontend."</em></li>
+</ul>
+
+<h3>8.2 Impeccable</h3>
+<p><strong>What it does:</strong> Turns Claude into an opinionated frontend design director. 23 commands covering the full UI lifecycle: typography, color, motion, spatial composition, interaction, responsive, UX writing. <strong>Most popular design skill in the Claude Code ecosystem</strong> — crossed 15k GitHub stars within days of release.</p>
+
+<p><strong>Created by:</strong> Paul Bakaus (former Google Developer Advocate, creator of jQuery UI).</p>
+
+<p><strong>Commands</strong> (chain them as a workflow):</p>
+<ul>
+  <li><code>/audit</code> — identify design issues across the project</li>
+  <li><code>/arrange</code> — layout fixes</li>
+  <li><code>/typeset</code> — typography pass (fixes font choices, size hierarchy, scaling)</li>
+  <li><code>/colorize</code> — color system pass</li>
+  <li><code>/polish</code> ⭐ — the final pass everyone runs before deploy</li>
+  <li><code>/critique</code>, <code>/distill</code>, <code>/animate</code>, <code>/bolder</code>, <code>/quieter</code> — additional refinement</li>
+</ul>
+
+<p><strong>Two modes:</strong> <em>brand</em> (marketing pages) vs <em>product</em> (app UI). The same commands adjust based on which mode you're in — e.g., <code>/typeset</code> recommends fluid typography for marketing pages but fixed type scales for product UI.</p>
+
+<p><strong>Quality controls:</strong> 27 deterministic anti-pattern rules + 12-rule LLM critique pass. Designed to consistently strip out "AI slop" patterns.</p>
+
+<p><strong>Where to get it:</strong></p>
+<ul>
+  <li><strong>Official repo:</strong> <a href="https://github.com/pbakaus/impeccable">github.com/pbakaus/impeccable</a></li>
+  <li><strong>Plugin Hub listing:</strong> <a href="https://www.claudepluginhub.com/plugins/pbakaus-impeccable">claudepluginhub.com/plugins/pbakaus-impeccable</a></li>
+  <li><strong>User guide:</strong> <a href="https://gist.github.com/rallison85/a92345b01195afdd959014f961e4f1d2">Complete reference gist</a></li>
+</ul>
+
+<h3>8.3 Taste ⭐ (reel author's favorite)</h3>
+<p><strong>What it does:</strong> Teaches Claude what good design <em>feels</em> like. Targets what Anthropic calls "distributive convergence" — the tendency of the model to reproduce the statistical center of design decisions (Inter font, purple gradients on white, rounded-corner cards, minimal animations). 13.3k GitHub stars.</p>
+
+<p><strong>What it enforces:</strong></p>
+<ul>
+  <li>Anti-repetition rules informed by dedicated research — same input produces visually different output each time.</li>
+  <li>Adjustable "premium" dial — you can tune from minimal/refined to maximalist/bold.</li>
+  <li>Framework-agnostic — works the same in React, Vue, plain HTML.</li>
+  <li>Motion-first — designs ship with animation by default, not as an afterthought.</li>
+</ul>
+
+<p><strong>Multiple specialized variants</strong> available (e.g. <code>design-taste-frontend</code> for general frontend, others for specific contexts).</p>
+
+<p><strong>Where to get it:</strong></p>
+<ul>
+  <li><strong>Main repo:</strong> <a href="https://github.com/Leonxlnx/taste-skill">github.com/Leonxlnx/taste-skill</a> — <code>npx skills add https://github.com/Leonxlnx/taste-skill</code></li>
+  <li><strong>Alternative (5-dimension taste — code, architecture, product, design, communication):</strong> <a href="https://github.com/VOIDXAI/taste">github.com/VOIDXAI/taste</a></li>
+</ul>
+
+<h3>8.4 The full "designer" stack — recommended workflow</h3>
+<p>The reel author calls this the "designer" combo and DMs the bundled link to anyone who comments "designer." Based on what we found, the workflow you can recreate yourself:</p>
+<ol>
+  <li>In a new Next.js project (e.g. <code>~/Projects/&lt;client&gt;/</code>), install all three:
+    <div class="copy-block">
+    <pre><code>npx skills add emilkowalski/skill
+npx skills add https://github.com/pbakaus/impeccable
+npx skills add https://github.com/Leonxlnx/taste-skill</code></pre>
+    </div>
+  </li>
+  <li>Build the page normally with Claude Code.</li>
+  <li>Run <code>/audit</code> (Impeccable) to see what's weak.</li>
+  <li>Run <code>/typeset</code> + <code>/colorize</code> (Impeccable) to fix the basics.</li>
+  <li>Ask Claude to <em>"use the Taste skill to make this feel less generic"</em> — let it run its anti-slop pass.</li>
+  <li>Ask Claude to <em>"use Emil's motion skill to add intentional animations"</em> — get the easing/timing right.</li>
+  <li>Final <code>/polish</code> (Impeccable) right before commit.</li>
+</ol>
+
+<div class="note">
+<strong>Other curated lists worth a look</strong> when picking skills for a specific aesthetic: <a href="https://github.com/travisvn/awesome-claude-skills">travisvn/awesome-claude-skills</a> · <a href="https://github.com/GetBindu/awesome-claude-code-and-skills">GetBindu/awesome-claude-code-and-skills</a> · <a href="https://pasqualepillitteri.it/en/news/576/claude-code-skills-design-uiux-guide">"18 Best Claude Code Skills for UI/UX Design"</a> · <a href="https://medium.com/@julian.oczkowski/7-claude-code-design-skills-that-follow-a-real-design-process-b871b8673d05">"7 Claude Code Design Skills That Follow a Real Design Process"</a>.
+</div>
+</section>
+
+<section class="major" id="changelog">
+<h2>9. Document changelog</h2>
+
+<p>Append a row here every time we update this file. Newest at the top.</p>
+
+<table>
+<tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-24</td><td>Added Section 8: Frontend design skills (Emil Kowalski motion, Impeccable, Taste) — researched 3 GitHub repos + alternates per skill. Fixed file-location reference: doc is now in Dropbox not iCloud.</td></tr>
+<tr><td>2026-05-23</td><td>Initial creation. Compiled from <code>security_audit_runbook.md</code> + 5 IG reels Asi sent on 2026-05-23 + earlier sessions (RTK, Shai-Hulud audit, security-scanner, OrderFlowEngine fix, equity-measurement fix, Telethon catchup TODO, API security fact-check from 2026-05-02).</td></tr>
+</table>
+
+<details>
+<summary>How to update this document (instructions for future Claude sessions)</summary>
+<ul>
+  <li>Append findings to the relevant section — don't rebuild the whole HTML.</li>
+  <li>For a brand new topic, add a new <code>&lt;h3&gt;</code> or <code>&lt;h4&gt;</code> under the most appropriate section. Update the <a href="#how-to-use">TOC</a> at the top.</li>
+  <li>For every change, add a row to <a href="#changelog">Section 9</a> with date + summary.</li>
+  <li>Keep the runbook (<code>security_audit_runbook.md</code>) and this HTML in sync — the runbook is the canonical procedural source, this HTML is the index/browsable view.</li>
+  <li>Don't break the styling — the CSS is inlined in <code>&lt;style&gt;</code>. If you add new structural elements (e.g., a new card type), add the CSS rule too.</li>
+</ul>
+</details>
+
+</section>
+
+<footer style="margin-top: 3rem; padding-top: 1.2rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.85rem;">
+  Single-file HTML, no external dependencies, works offline. Open in any browser. Dropbox-synced to all of Asi's machines (was iCloud until 2026-05-23 — iCloud full).
+</footer>
+
+</div>
+</body>
+</html>
