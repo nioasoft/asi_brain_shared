@@ -270,6 +270,7 @@
     <li><a href="#api-claims">OWASP-grounded API security claims (fact-checked)</a></li>
     <li><a href="#design-skills">Frontend design skills (Emil Kowalski · Impeccable · Taste)</a></li>
     <li><a href="#legal-compliance">Legal compliance for shipped apps (Privacy / ToS / CCPA / GDPR)</a></li>
+    <li><a href="#ux-patterns">UX patterns that AI tools get wrong (error states, loading, forms…)</a></li>
     <li><a href="#changelog">Document changelog</a></li>
   </ol>
 </nav>
@@ -630,6 +631,11 @@ python main.py https://example.com --he  # Hebrew output</code></pre>
 
 <h4>Shai-Hulud npm/PyPI compromise <span class="meta">(FB video · 2026-05-15)</span></h4>
 <p>Audited the USDC maker bot's dependencies on 2026-05-17 against the list of compromised packages from the disclosure. Result: clean — no exposure. Re-audit any new <code>requirements.txt</code> or <code>package.json</code> additions against published IOC lists for the next 6 months.</p>
+
+<h3>4.6 UX patterns</h3>
+
+<h4>Error states — what AI tools build wrong by default <span class="meta">(IG · 2026-05-25 · reel DYr7cKLIQo6 · "Building with good UX" Part 5)</span></h4>
+<p>3 things every error message must do: <strong>what happened, why, what's next</strong>. Don't dump stack traces (security risk too). Don't say "Something went wrong" (vague, breaks trust at payment time). Don't fail silently (worst — AI tool default). Full anti-pattern table + 8-line implementation checklist + ready prompt to audit existing code. See <a href="#ux-patterns">Section 10 — UX patterns</a>.</p>
 </section>
 
 <section class="major" id="prompts">
@@ -986,13 +992,103 @@ npx skills add https://github.com/Leonxlnx/taste-skill</code></pre>
 </div>
 </section>
 
+<section class="major" id="ux-patterns">
+<h2>10. UX patterns that AI tools get wrong</h2>
+
+<p>AI coding tools default to UI patterns that look fine to a developer but feel broken to a real user. This section documents the specific patterns to ask for explicitly. Source: a multi-part IG series "Building with good UX." First captured: reel <code>DYr7cKLIQo6</code> (2026-05-25) — Part 5: error states.</p>
+
+<p><strong>Relevance for Asi:</strong> when delivering Next.js client projects, these patterns are the difference between "the site works" and "the site feels professional." Most Claude Code / Cursor / GPT-built UIs ship with bad defaults; this list is the explicit asks you make to fix them.</p>
+
+<h3>10.1 Error states (Part 5 — reel DYr7cKLIQo6)</h3>
+
+<p>Unless you explicitly ask, AI-built apps tend to default to one of three bad patterns: raw stack traces dumped to the user, vague "Something went wrong", or silent failures (button click → nothing happens).</p>
+
+<h4>The 3 things a good error message must do</h4>
+<ol>
+  <li><strong>Tell them what happened.</strong> Not "Error 500" — say what actually broke in user-readable terms.</li>
+  <li><strong>Tell them why.</strong> Even a short clue helps them feel in control.</li>
+  <li><strong>Give them a clear next action.</strong> "Try again," "use a different card," "contact support" — never leave them stuck.</li>
+</ol>
+
+<h4>Anti-pattern comparison</h4>
+<table>
+<tr><th>Bad</th><th>Why bad</th><th>Good</th></tr>
+<tr>
+  <td><code>SQLError: ER_DUP_ENTRY: Duplicate entry 'foo@bar.com' for key 'users.email'</code></td>
+  <td>Leaks DB engine + schema. A regular user has no idea what it means. Also a <strong>security vulnerability</strong> — see <a href="#api-claims">Section 7, Claim 3</a>.</td>
+  <td>"This email is already registered. Try logging in instead, or use a different email."</td>
+</tr>
+<tr>
+  <td>"Something went wrong."</td>
+  <td>Tells the user nothing. After a payment, they don't know if their card was charged or not — terrible for trust.</td>
+  <td>"Your payment didn't go through — your card was declined. Please check your card details or try a different payment method."</td>
+</tr>
+<tr>
+  <td><em>(silent failure — button click does nothing, screen doesn't change)</em></td>
+  <td>The worst kind. User has no idea if the action worked, is processing, or broke. Default AI-coded behavior when error handling is absent.</td>
+  <td>Inline error near the form field that failed, plus a toast/banner for system-level errors. <em>Always</em> show something within 1 second of the action.</td>
+</tr>
+</table>
+
+<h4>Implementation checklist for any form/action</h4>
+<div class="copy-block">
+<pre><code>[ ] Loading state shows within 200ms of click (spinner or skeleton)
+[ ] On success: explicit confirmation (toast, redirect, or visual change)
+[ ] On client validation error: inline error near the specific field
+[ ] On server error: user-readable message (not stack trace) + suggested next step
+[ ] Network failure handled separately ("Check your connection and try again")
+[ ] Never just disable the button silently — show why it's disabled
+[ ] Server errors logged server-side with request ID; UI shows the request ID
+    so user can quote it to support
+[ ] Payment / destructive actions: extra-explicit error wording
+    ("Your card was NOT charged" vs "Payment failed")</code></pre>
+</div>
+
+<h4>Prompt to upgrade existing error handling</h4>
+<div class="copy-block">
+<pre><code>Audit this project's error handling. Find every place that:
+1. Catches an error and shows the raw error message to the user
+   (look for: catch(e) { setError(e.message) }, throw new Error(...) reaching UI)
+2. Has a "Something went wrong" string anywhere
+3. Has a form submit handler with no error UI
+4. Has a button that can fail with no loading state
+
+For each, suggest a rewrite that:
+- Maps the technical error to a user-readable message (use a switch/lookup table
+  keyed on error code or error name)
+- Tells the user what happened, why, and what to do next
+- Adds an inline-near-field error for validation failures, plus a toast for
+  system-level failures
+- Logs the full technical error server-side with a request ID, and shows that
+  request ID in the user-facing message
+
+Don't fix anything yet — produce a numbered list of locations + proposed message
+strings, then I'll review and you'll implement.</code></pre>
+</div>
+
+<h3>10.2 Coming in future reels (placeholders)</h3>
+
+<p>The same series promises more parts. Asi may send them — when he does, append here.</p>
+
+<table>
+<tr><th>Part</th><th>Topic</th><th>Status</th></tr>
+<tr><td>1–3</td><td>Loading states</td><td><span class="pill warn">missed — Asi has not sent these reels yet</span></td></tr>
+<tr><td>4</td><td>(unclear from this reel — possibly empty states or success states)</td><td><span class="pill warn">missed</span></td></tr>
+<tr><td>5</td><td><strong>Error states</strong> (captured above)</td><td><span class="pill ok">documented</span></td></tr>
+<tr><td>6</td><td>Forms — "designing them so the user hates you a little less"</td><td><span class="pill info">teased in reel 5, watch for it</span></td></tr>
+</table>
+
+<p>If Asi finds the earlier parts (1–4) on the same creator's profile, send them and I'll add the captured patterns here. The series is worth completing as a Next.js delivery checklist.</p>
+</section>
+
 <section class="major" id="changelog">
-<h2>10. Document changelog</h2>
+<h2>11. Document changelog</h2>
 
 <p>Append a row here every time we update this file. Newest at the top.</p>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-25 (later)</td><td>Added Section 10: UX patterns — error states (the 3-things rule, anti-pattern table, implementation checklist, audit prompt). From IG reel DYr7cKLIQo6 (Part 5 of "Building with good UX"). Placeholders for Parts 1–4 + 6 (forms — teased).</td></tr>
 <tr><td>2026-05-25</td><td>Added Section 9: Legal compliance for shipped apps (Privacy policy, ToS, CCPA/GDPR, Israel-specific notes, pre-delivery checklist). From IG reel DYrvI-fAPC2. Added to Section 3.3 (Tools to evaluate): "Anthropic Cybersecurity Skills" library (754 workflows, MITRE/NIST mapped, by mukul975 — NOT Anthropic) from reel DYsVdwjgJke, and ScrapeGraphAI (MIT, LLM-based scraping) from reel DYrlQReEbxS. Doc moved to GitHub Pages on 2026-05-24 — live at <a href="https://nioasoft.github.io/asi_brain_shared/">nioasoft.github.io/asi_brain_shared</a>.</td></tr>
 <tr><td>2026-05-24</td><td>Added Section 8: Frontend design skills (Emil Kowalski motion, Impeccable, Taste) — researched 3 GitHub repos + alternates per skill. Fixed file-location reference: doc is now in Dropbox not iCloud.</td></tr>
 <tr><td>2026-05-23</td><td>Initial creation. Compiled from <code>security_audit_runbook.md</code> + 5 IG reels Asi sent on 2026-05-23 + earlier sessions (RTK, Shai-Hulud audit, security-scanner, OrderFlowEngine fix, equity-measurement fix, Telethon catchup TODO, API security fact-check from 2026-05-02).</td></tr>
@@ -1003,7 +1099,7 @@ npx skills add https://github.com/Leonxlnx/taste-skill</code></pre>
 <ul>
   <li>Append findings to the relevant section — don't rebuild the whole HTML.</li>
   <li>For a brand new topic, add a new <code>&lt;h3&gt;</code> or <code>&lt;h4&gt;</code> under the most appropriate section. Update the <a href="#how-to-use">TOC</a> at the top.</li>
-  <li>For every change, add a row to <a href="#changelog">Section 10</a> with date + summary.</li>
+  <li>For every change, add a row to <a href="#changelog">Section 11</a> with date + summary.</li>
   <li>Keep the runbook (<code>security_audit_runbook.md</code>) and this HTML in sync — the runbook is the canonical procedural source, this HTML is the index/browsable view.</li>
   <li>Don't break the styling — the CSS is inlined in <code>&lt;style&gt;</code>. If you add new structural elements (e.g., a new card type), add the CSS rule too.</li>
 </ul>
