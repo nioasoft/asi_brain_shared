@@ -269,6 +269,7 @@
     <li><a href="#bot-patterns">Bot code-quality patterns we've learned</a></li>
     <li><a href="#api-claims">OWASP-grounded API security claims (fact-checked)</a></li>
     <li><a href="#design-skills">Frontend design skills (Emil Kowalski · Impeccable · Taste)</a></li>
+    <li><a href="#legal-compliance">Legal compliance for shipped apps (Privacy / ToS / CCPA / GDPR)</a></li>
     <li><a href="#changelog">Document changelog</a></li>
   </ol>
 </nav>
@@ -495,6 +496,70 @@ python main.py https://example.com --he  # Hebrew output</code></pre>
   <li>Retry on parse failure (3 attempts with feedback)</li>
   <li>Structured output mode (<code>response_format: json_object</code> if supported)</li>
 </ul>
+
+<h4>"Anthropic Cybersecurity Skills" library <span class="pill warn">strong evaluate</span></h4>
+<p>754 structured cybersecurity skills for AI agents, mapped to 5 industry frameworks. Surfaced via IG reel <code>DYsVdwjgJke</code> on 2026-05-25.</p>
+
+<div class="note">
+<strong>Important — naming caveat:</strong> The repo is called "Anthropic Cybersecurity Skills" but is <strong>NOT</strong> made by or affiliated with Anthropic. It's a community project by <a href="https://github.com/mukul975">mukul975</a>. The reel implied Anthropic ownership — that's misleading marketing. The project itself looks solid, but verify before treating as canonical.
+</div>
+
+<p><strong>What it is:</strong></p>
+<ul>
+  <li>754 cybersecurity skills (incident response, threat hunting, memory forensics, credential theft, malware analysis, etc.)</li>
+  <li>26 security domains</li>
+  <li>Each skill follows the <code>agentskills.io</code> open standard — YAML frontmatter for fast discovery, structured Markdown for step-by-step execution</li>
+  <li><strong>Cross-mapped to 5 frameworks:</strong> MITRE ATT&amp;CK Enterprise, NIST CSF 2.0, MITRE ATLAS v5.5, MITRE D3FEND v1.3, NIST AI RMF 1.0</li>
+  <li>Works with Claude Code, GitHub Copilot, Cursor, Cline, Aider, Continue, Roo Code, Codex CLI, Gemini CLI, Devin, Replit Agent, LangChain, CrewAI, AutoGen — any MCP-compatible agent</li>
+  <li>Progressive disclosure architecture — agents can scan all 754 skills in one pass without blowing context windows</li>
+  <li><strong>License:</strong> Apache 2.0 — usable in commercial security work</li>
+</ul>
+
+<p><strong>Why this is relevant for Asi specifically:</strong></p>
+<ul>
+  <li>Pairs perfectly with the custom <code>~/asibrain/security-scanner/</code> — that one is for HTTP / SSL / headers; this library covers incident response and threat hunting workflows that the custom scanner doesn't.</li>
+  <li>For client deliveries: if a client gets compromised post-launch, having a senior-analyst-quality playbook ready saves hours of "what do I check first?"</li>
+  <li>For Asi's own bot infrastructure: the credential-theft and memory-forensics skills are directly applicable if a trading bot's API keys ever look compromised.</li>
+</ul>
+
+<p><strong>Repo:</strong> <a href="https://github.com/mukul975/Anthropic-Cybersecurity-Skills">github.com/mukul975/Anthropic-Cybersecurity-Skills</a> (also forked as <a href="https://github.com/hliosone/anthropic-cybersecurity-skills">hliosone/anthropic-cybersecurity-skills</a>).</p>
+
+<p><strong>Before installing:</strong></p>
+<ol>
+  <li>Sanity-check 5–10 random skills against your domain knowledge. The reel didn't show output quality, so verify a few "memory forensics" or "credential theft" skills actually contain useful workflow steps, not just generic security platitudes.</li>
+  <li>Check the most recent commit date and active issues. A 754-skill library could degrade fast if not maintained.</li>
+  <li>Run inside a sandbox at first — these are workflow descriptions, but if any include "run this command" scripts, audit before executing on a real system.</li>
+</ol>
+
+<p><strong>Verdict:</strong> worth a serious 1-hour evaluation. If quality is real, this is a significant upgrade to the security side of the toolkit. Don't auto-install all 754 — pick the 5-10 most relevant for your actual workload (web app pentest, credential audit, log analysis).</p>
+
+<h4>ScrapeGraphAI <span class="pill warn">strong evaluate</span></h4>
+<p>Open-source Python scraping library that uses an LLM + graph logic instead of CSS selectors. From IG reel <code>DYrlQReEbxS</code> (2026-05-25). The reel framed it as "every paid scraping company just got destroyed by one free GitHub repo" — typical hype, but the underlying project is real and serious.</p>
+
+<p><strong>What it does:</strong></p>
+<ul>
+  <li>Give it a URL + a plain-English description of what data you want. It infers structure from the page and returns it.</li>
+  <li>LLM-agnostic — OpenAI, Azure OpenAI, Gemini, Groq, or local models via Ollama.</li>
+  <li>Supports websites + local documents (XML, HTML, JSON, Markdown).</li>
+  <li>Resilient to layout drift — when a site changes its markup, your prompt usually still works (selector-based scrapers break).</li>
+  <li><strong>License:</strong> MIT — fully commercial-usable.</li>
+</ul>
+
+<p><strong>Why this is relevant for Asi specifically:</strong></p>
+<ul>
+  <li><strong>Bitunix 403 / Binance 418-ban scenarios</strong> — when REST APIs are blocked, you can scrape the web UI instead. ScrapeGraphAI + Ollama (local LLM, no API cost) means you can scrape order books or funding rates without paying for API access or for an LLM service per request.</li>
+  <li><strong>For client projects</strong> — competitor monitoring, price tracking, lead enrichment. The reel's "$5,000 per scraping project" framing is real — agencies do charge that. A one-afternoon setup for a Bashier-style B2B client can be a real upsell.</li>
+  <li><strong>Stack pairing with Cloak Browser (Section 3.3 above):</strong> Cloak Browser handles bot-detection bypass; ScrapeGraphAI handles structured extraction. Together they cover the full "scrape any site, get clean data" pipeline.</li>
+</ul>
+
+<p><strong>Repo:</strong> <a href="https://github.com/ScrapeGraphAI/Scrapegraph-ai">github.com/ScrapeGraphAI/Scrapegraph-ai</a> · <strong>PyPI:</strong> <code>pip install scrapegraphai</code> · <strong>LangChain integration:</strong> <a href="https://github.com/ScrapeGraphAI/langchain-scrapegraph">langchain-scrapegraph</a> · <strong>Tutorial:</strong> <a href="https://medium.com/data-science-collective/llm-assisted-web-data-extraction-with-scrapegraphai-a-practical-2025-walkthrough-ee56960394db">practical walkthrough</a>.</p>
+
+<p><strong>Before treating it as production:</strong></p>
+<ol>
+  <li>The reel mentioned "23,000 stars and an Italian developer." Star count is a vanity metric — verify the repo has recent commits and responsive issue triage before betting on it for a client deliverable.</li>
+  <li>LLM-based scraping is <strong>expensive at scale</strong> if you use a paid model. Default to local Ollama for high-volume work; pay per-call only when you need quality the local can't give.</li>
+  <li>For legally sensitive scraping (anything behind login, anything paywalled, anything competitor-targeted): respect the target site's ToS and Israeli/EU law. The tool removes the technical barrier but not the legal one.</li>
+</ol>
 </section>
 
 <section class="major" id="reels">
@@ -541,6 +606,12 @@ python main.py https://example.com --he  # Hebrew output</code></pre>
 <h4>Cloak Browser <span class="meta">(IG · 2026-05-23 · reel DYnWDihzQqF)</span></h4>
 <p>See <a href="#tools-watching">Section 3.3 — Tools to evaluate</a>.</p>
 
+<h4>ScrapeGraphAI <span class="meta">(IG · 2026-05-25 · reel DYrlQReEbxS)</span></h4>
+<p>LLM-based scraper (MIT, Python). "Every paid scraping company just got destroyed" framing — hype, but the project is real. Pairs with Cloak Browser for bot-detection bypass + structured extraction. See <a href="#tools-watching">Section 3.3 — Tools to evaluate</a> for full breakdown.</p>
+
+<h4>"Anthropic Cybersecurity Skills" library <span class="meta">(IG · 2026-05-25 · reel DYsVdwjgJke)</span></h4>
+<p>754 cybersecurity workflows for AI agents, Apache 2.0, mapped to MITRE ATT&amp;CK + NIST CSF + others. <strong>Not actually by Anthropic — community project by mukul975.</strong> See <a href="#tools-watching">Section 3.3 — Tools to evaluate</a> for full breakdown.</p>
+
 <h3>4.4 LLM &amp; agent infrastructure</h3>
 
 <h4>Giscard / LLM Guard / Rebuff <span class="meta">(IG · 2026-05-17)</span></h4>
@@ -551,6 +622,9 @@ python main.py https://example.com --he  # Hebrew output</code></pre>
 
 <h4>3 Claude Code design skills for frontend <span class="meta">(IG · 2026-05-09 · reel DX_q_jqoLWN)</span></h4>
 <p>Emil Kowalski (motion) + Impeccable (<code>/polish</code>) + Taste (anti-AI-slop). See <a href="#design-skills">Section 8 — Frontend design skills</a> for the full breakdown with install links.</p>
+
+<h4>Legal compliance one-afternoon checklist <span class="meta">(IG · 2026-05-25 · reel DYrvI-fAPC2)</span></h4>
+<p>Privacy policy + ToS + CCPA/GDPR basics for shipped apps that collect user data. See <a href="#legal-compliance">Section 9 — Legal compliance</a>.</p>
 
 <h3>4.5 Supply-chain attacks</h3>
 
@@ -818,13 +892,108 @@ npx skills add https://github.com/Leonxlnx/taste-skill</code></pre>
 </div>
 </section>
 
+<section class="major" id="legal-compliance">
+<h2>9. Legal compliance for shipped apps</h2>
+
+<p>If a project collects <strong>any</strong> user data — even just an email signup — it needs a privacy policy, terms of service, and a CCPA/GDPR-compliant deletion path. Source: IG reel <code>DYrvI-fAPC2</code> (2026-05-25). The reel's framing was sharp: <em>"one complaint away from a lawsuit"</em>. This isn't paranoia — it's the actual legal floor for any consumer-facing app in 2026.</p>
+
+<p><strong>Relevance for Asi:</strong> every Next.js client delivery that has a contact form, signup, account, order, or analytics tracker triggers this. Bake the checklist into pre-delivery for any of: Bashier, gan-tair, hanna-engteacher, faran, eishoron, shwartz, YL-SPORT, code7, hanadavid, hadlut, etc. The cost is one afternoon; the upside is the client never gets a takedown notice.</p>
+
+<h3>9.1 The 3-step checklist (~1 afternoon total)</h3>
+
+<h4>Step 1 — Privacy policy <span class="pill danger">required</span></h4>
+<p><strong>Goal:</strong> document what data is collected, how it's stored, and how users can delete it. Must cover at minimum: data categories, storage location, retention period, third-party sharing, cookies, user rights, and contact for inquiries.</p>
+<p><strong>Free generators (10 min each):</strong></p>
+<ul>
+  <li><a href="https://termly.io">Termly</a> — generator + auto-update when laws change. Free tier sufficient for most client sites.</li>
+  <li><a href="https://www.privacypolicies.com">PrivacyPolicies.com</a> — alternative generator. Slightly more lawyer-flavored output.</li>
+  <li><a href="https://www.iubenda.com">Iubenda</a> — more polished, paid for serious products; free tier exists.</li>
+</ul>
+<p><strong>Where to put it:</strong> linked from the footer of every page, plus on the signup form right next to "I agree."</p>
+
+<h4>Step 2 — Terms of Service (ToS) <span class="pill danger">required</span></h4>
+<p><strong>Goal:</strong> liability limitation + user-conduct rules + dispute resolution + jurisdiction. This is the legal shield. Without it, every user interaction is unlimited liability exposure.</p>
+<p><strong>What it must cover:</strong></p>
+<ul>
+  <li><strong>Limitation of liability</strong> — caps the maximum legal damages the user can claim (usually limited to fees paid or a small fixed amount).</li>
+  <li><strong>User conduct rules</strong> — what users can / can't do on the platform.</li>
+  <li><strong>Dispute resolution</strong> — arbitration clause, governing law, jurisdiction (for an Israeli business: usually Israeli law + Israeli courts, unless the client is targeting EU/US).</li>
+  <li><strong>Intellectual property</strong> — who owns user-generated content.</li>
+  <li><strong>Termination</strong> — when/why you can suspend an account.</li>
+  <li><strong>Modifications</strong> — how ToS changes are communicated.</li>
+</ul>
+<p><strong>Templates:</strong></p>
+<ul>
+  <li><a href="https://termly.io/products/terms-and-conditions-generator/">Termly ToS generator</a> — free, generated in 10 min.</li>
+  <li><a href="https://www.privacypolicies.com/blog/sample-terms-conditions-template/">PrivacyPolicies sample ToS template</a> — adapt and trim.</li>
+  <li><strong>If the project handles payments or has Israeli-specific obligations</strong> (consumer protection law, etc.) — get a real lawyer to review before launch. Costs ~₪500–1500 for a basic SaaS review; cheap insurance.</li>
+</ul>
+
+<h4>Step 3 — CCPA + GDPR basics <span class="pill danger">required if any EU/CA users</span></h4>
+<p>If the site collects <em>any</em> data from California or EU residents — and any consumer-facing site does, even if accidentally — these two laws apply:</p>
+
+<table>
+<tr><th>Requirement</th><th>What it means</th><th>Implementation</th></tr>
+<tr>
+  <td><strong>Opt-out</strong></td>
+  <td>Users must be able to say "don't sell my data" / "don't share with third parties"</td>
+  <td>A cookie banner with "Reject all" button. Don't use the dark-pattern "Accept all (highlighted) vs Manage preferences (greyed)."</td>
+</tr>
+<tr>
+  <td><strong>Data deletion on request</strong></td>
+  <td>User asks → you delete (within 30 days under CCPA, 1 month under GDPR)</td>
+  <td>Add a <strong>"Delete my data"</strong> button in the account settings or a contact form. <strong>It's the law, not a nice-to-have.</strong></td>
+</tr>
+<tr>
+  <td><strong>Data export</strong></td>
+  <td>User can request a copy of all their data (GDPR Article 15 — right of access)</td>
+  <td>Either auto-generated download in account settings, or manual export within 30 days of request.</td>
+</tr>
+<tr>
+  <td><strong>Consent for tracking</strong></td>
+  <td>Before any non-essential cookies or trackers (Google Analytics, Meta Pixel, etc.) fire</td>
+  <td>Cookie banner must require explicit opt-in BEFORE the tracker loads. Don't load GA on first visit; only after consent.</td>
+</tr>
+</table>
+
+<h3>9.2 Pre-delivery legal checklist (copy into project)</h3>
+
+<div class="copy-block">
+<pre><code>[ ] Privacy policy generated (Termly / PrivacyPolicies / Iubenda)
+[ ] Privacy policy linked from footer + signup form
+[ ] Terms of Service drafted and reviewed (lawyer if any non-trivial liability)
+[ ] ToS accepted at signup (checkbox, not pre-checked)
+[ ] Cookie banner with explicit opt-in (not just "by using this site you agree")
+[ ] Cookie banner blocks non-essential trackers (GA, Pixel, etc.) until consent
+[ ] "Delete my data" path exists — button in account settings OR a documented email process
+[ ] Data export path exists — auto-download OR manual within 30 days
+[ ] If using analytics: GA4 anonymized IPs (`anonymize_ip: true`); no PII in event parameters
+[ ] If using payments: Stripe / PayPal handles PCI compliance (don't store card data yourself)
+[ ] Contact email for data-rights requests (publish in privacy policy)
+[ ] Data Processing Agreement (DPA) with vendors that touch user data (Supabase / Vercel / Mailgun / etc. — most have a self-serve DPA in their console)</code></pre>
+</div>
+
+<h3>9.3 Israel-specific notes</h3>
+<ul>
+  <li><strong>Privacy Protection Law (חוק הגנת הפרטיות)</strong> — Israeli equivalent of GDPR. Requires registration of databases with the Privacy Protection Authority above certain thresholds. Most small client projects don't trigger it, but check if the project handles sensitive categories (health, finance, biometric).</li>
+  <li><strong>Consumer Protection Law (חוק הגנת הצרכן)</strong> — for any project with sales, returns, or subscriptions. Mandatory cooling-off period (14 days for online sales), clear pricing display.</li>
+  <li><strong>Israeli email law (חוק הספאם)</strong> — explicit double-opt-in required for marketing emails. Pre-checked boxes are illegal. Include "unsubscribe" link in every email.</li>
+  <li>For B2B clients (most of Asi's freelance work): the client carries the obligation, but you carry reputation risk. Spending an afternoon getting the legal footer right is part of the deliverable.</li>
+</ul>
+
+<div class="note">
+<strong>What this section is NOT:</strong> legal advice. Generators give you 80% coverage for free; the last 20% (anything custom about your client's product, anything cross-border, anything that touches financial data or minors) needs a real lawyer. Treat this section as "default to compliant" — when the project is anything more than a basic informational site, get human legal review.
+</div>
+</section>
+
 <section class="major" id="changelog">
-<h2>9. Document changelog</h2>
+<h2>10. Document changelog</h2>
 
 <p>Append a row here every time we update this file. Newest at the top.</p>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-25</td><td>Added Section 9: Legal compliance for shipped apps (Privacy policy, ToS, CCPA/GDPR, Israel-specific notes, pre-delivery checklist). From IG reel DYrvI-fAPC2. Added to Section 3.3 (Tools to evaluate): "Anthropic Cybersecurity Skills" library (754 workflows, MITRE/NIST mapped, by mukul975 — NOT Anthropic) from reel DYsVdwjgJke, and ScrapeGraphAI (MIT, LLM-based scraping) from reel DYrlQReEbxS. Doc moved to GitHub Pages on 2026-05-24 — live at <a href="https://nioasoft.github.io/asi_brain_shared/">nioasoft.github.io/asi_brain_shared</a>.</td></tr>
 <tr><td>2026-05-24</td><td>Added Section 8: Frontend design skills (Emil Kowalski motion, Impeccable, Taste) — researched 3 GitHub repos + alternates per skill. Fixed file-location reference: doc is now in Dropbox not iCloud.</td></tr>
 <tr><td>2026-05-23</td><td>Initial creation. Compiled from <code>security_audit_runbook.md</code> + 5 IG reels Asi sent on 2026-05-23 + earlier sessions (RTK, Shai-Hulud audit, security-scanner, OrderFlowEngine fix, equity-measurement fix, Telethon catchup TODO, API security fact-check from 2026-05-02).</td></tr>
 </table>
@@ -834,7 +1003,7 @@ npx skills add https://github.com/Leonxlnx/taste-skill</code></pre>
 <ul>
   <li>Append findings to the relevant section — don't rebuild the whole HTML.</li>
   <li>For a brand new topic, add a new <code>&lt;h3&gt;</code> or <code>&lt;h4&gt;</code> under the most appropriate section. Update the <a href="#how-to-use">TOC</a> at the top.</li>
-  <li>For every change, add a row to <a href="#changelog">Section 9</a> with date + summary.</li>
+  <li>For every change, add a row to <a href="#changelog">Section 10</a> with date + summary.</li>
   <li>Keep the runbook (<code>security_audit_runbook.md</code>) and this HTML in sync — the runbook is the canonical procedural source, this HTML is the index/browsable view.</li>
   <li>Don't break the styling — the CSS is inlined in <code>&lt;style&gt;</code>. If you add new structural elements (e.g., a new card type), add the CSS rule too.</li>
 </ul>
