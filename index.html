@@ -375,6 +375,92 @@ grep -rn "findUnique\|findFirst\|findOne" --include="*.ts" --include="*.js" -A 3
 
 <p><strong>Fix pattern:</strong> every database read/write inside a route should be scoped by the current user's session — never trust an ID from the URL or body on its own.</p>
 
+<h4 id="step-2-supabase">Step 2b — Supabase RLS (Row-Level Security) deep dive <span class="meta">(IG reel DYxb9K-RC7n · 2026-05-26)</span></h4>
+
+<p>If the project uses <strong>Supabase</strong> (or any Postgres-backed Next.js stack), IDOR has a database-level fix that's even more important than the route-level check above: <strong>Row-Level Security policies</strong>. The reel framed it sharply: <em>"Most of you have Supabase tables that are publicly readable, whether you know it or not — not because you chose it, because that's the default for AI-produced apps."</em></p>
+
+<div class="note">
+<strong>Why this matters more than route-level checks:</strong> if a developer (or Claude) ever forgets the ownership check on a single route, the route is wide open. RLS is enforced by Postgres itself — every query is filtered at the database, so even a buggy route can't leak data. <strong>Defense in depth.</strong> Always do both.
+</div>
+
+<h4>What to check right now (5 minutes)</h4>
+<ol>
+  <li>Open Supabase dashboard → <code>Authentication</code> → <code>Policies</code>.</li>
+  <li>For every table that stores user data, you should see <strong>at least</strong> one policy per operation type (SELECT, INSERT, UPDATE, DELETE).</li>
+  <li><strong>Empty policies list = wide open.</strong> If RLS is enabled but no policies exist, the table denies everything — that's safe. If RLS is <em>disabled</em>, anyone with a valid session token can query the whole table.</li>
+  <li>Check the toggle in the table editor: <em>"Enable Row Level Security"</em> must be <strong>ON</strong> for every table touching user data.</li>
+</ol>
+
+<h4>The minimum required policies</h4>
+
+<table>
+<tr><th>Table type</th><th>Policies needed</th></tr>
+<tr><td>Stores user-specific data (orders, profiles, posts, settings)</td><td><strong>SELECT</strong> + <strong>INSERT</strong> at minimum</td></tr>
+<tr><td>Stores sensitive data user can change (medical, financial, personal info)</td><td><strong>SELECT</strong> + <strong>INSERT</strong> + <strong>UPDATE</strong> + <strong>DELETE</strong> (all four)</td></tr>
+<tr><td>Stores shared / read-only reference data (countries, product catalog)</td><td><strong>SELECT</strong> public; no INSERT/UPDATE/DELETE for end users</td></tr>
+</table>
+
+<h4>Canonical RLS policy (paste into Supabase SQL editor)</h4>
+
+<div class="copy-block">
+<pre><code>-- Enable RLS on a table
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+
+-- SELECT policy: users only see their own rows
+CREATE POLICY "Users can read own orders"
+  ON orders FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- INSERT policy: users can only insert rows owned by themselves
+CREATE POLICY "Users can insert own orders"
+  ON orders FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- UPDATE policy: users can update only their own rows
+CREATE POLICY "Users can update own orders"
+  ON orders FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- DELETE policy: users can delete only their own rows
+CREATE POLICY "Users can delete own orders"
+  ON orders FOR DELETE
+  USING (auth.uid() = user_id);</code></pre>
+</div>
+
+<p><strong>Key gotchas:</strong></p>
+<ul>
+  <li><code>USING (...)</code> filters which rows are visible/affected for SELECT/UPDATE/DELETE.</li>
+  <li><code>WITH CHECK (...)</code> validates inserts and updates — without it, a user could update <code>user_id</code> on a row they own to someone else's ID and "give it away" (or steal it).</li>
+  <li>The <strong>service role key</strong> bypasses RLS entirely. Never expose it to the browser. It's for server-side admin operations only.</li>
+  <li>If using a <strong>JWT custom claim</strong> (e.g., <code>app_metadata.role</code>), reference it via <code>auth.jwt() -&gt; 'app_metadata' -&gt;&gt; 'role'</code> in policies.</li>
+</ul>
+
+<h4>Audit prompt for a Claude session</h4>
+
+<div class="copy-block">
+<pre><code>This project uses Supabase. Audit the RLS state of every table:
+
+1. List every table in the database (via supabase migrations or `select * from
+   pg_tables where schemaname = 'public'`).
+2. For each table, report:
+   - Is RLS enabled? (pg_class.relrowsecurity)
+   - How many policies exist? (count from pg_policies)
+   - For each policy: name, command (SELECT/INSERT/UPDATE/DELETE), and the
+     USING / WITH CHECK expressions.
+3. Flag tables that:
+   - Have RLS DISABLED but store user data → CRITICAL
+   - Have RLS enabled but ZERO policies for one or more of SELECT/INSERT/UPDATE/DELETE
+     when the app's code calls that operation → HIGH
+   - Have a policy with `USING (true)` or `WITH CHECK (true)` → HIGH (effectively no filter)
+   - Have policies on UPDATE without WITH CHECK → MEDIUM (lets user reassign rows)
+
+Output a CSV-style table: table_name | rls_enabled | select_pol | insert_pol |
+update_pol | delete_pol | risk_level | one_line_recommendation.
+
+Don't write any SQL fixes yet. Just the audit report.</code></pre>
+</div>
+
 <h3 id="step-3">Step 3 — Secrets hygiene</h3>
 <p><strong>Goal:</strong> No secrets in code, no secrets in front-end bundles, no secrets in Git history.</p>
 
@@ -577,6 +663,9 @@ python main.py https://example.com --he  # Hebrew output</code></pre>
   <li><strong>Env vars review</strong> — secrets in code? in committed <code>.env</code>? in front-end? Anything in front-end is already exposed — rotate today.</li>
 </ol>
 <p>Full procedure baked into <a href="#runbook">Section 2 (runbook)</a> above.</p>
+
+<h4>Supabase Row-Level Security <span class="meta">(IG · 2026-05-26 · reel DYxb9K-RC7n · "Layer 8 of 13: Security")</span></h4>
+<p>If a Supabase table has no RLS policies, it's wide open — anyone with a valid session token can query everything. Auth ≠ Authz. Full audit checklist + canonical policies SQL + audit prompt added to <a href="#step-2-supabase">Step 2b — Supabase RLS deep dive</a>.</p>
 
 <h4>Pre-deploy Claude Code workflow <span class="meta">(IG · 2026-05-23 · reel DYe5e2qJgoP)</span></h4>
 <ol>
@@ -1088,6 +1177,7 @@ strings, then I'll review and you'll implement.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-26</td><td>Added Step 2b to the runbook: Supabase Row-Level Security deep dive (audit checklist, canonical policies SQL with USING / WITH CHECK gotchas, ready audit prompt). From IG reel DYxb9K-RC7n ("Layer 8 of 13: Security"). Critical complement to Step 2 IDOR tests for any Supabase-backed project.</td></tr>
 <tr><td>2026-05-25 (later)</td><td>Added Section 10: UX patterns — error states (the 3-things rule, anti-pattern table, implementation checklist, audit prompt). From IG reel DYr7cKLIQo6 (Part 5 of "Building with good UX"). Placeholders for Parts 1–4 + 6 (forms — teased).</td></tr>
 <tr><td>2026-05-25</td><td>Added Section 9: Legal compliance for shipped apps (Privacy policy, ToS, CCPA/GDPR, Israel-specific notes, pre-delivery checklist). From IG reel DYrvI-fAPC2. Added to Section 3.3 (Tools to evaluate): "Anthropic Cybersecurity Skills" library (754 workflows, MITRE/NIST mapped, by mukul975 — NOT Anthropic) from reel DYsVdwjgJke, and ScrapeGraphAI (MIT, LLM-based scraping) from reel DYrlQReEbxS. Doc moved to GitHub Pages on 2026-05-24 — live at <a href="https://nioasoft.github.io/asi_brain_shared/">nioasoft.github.io/asi_brain_shared</a>.</td></tr>
 <tr><td>2026-05-24</td><td>Added Section 8: Frontend design skills (Emil Kowalski motion, Impeccable, Taste) — researched 3 GitHub repos + alternates per skill. Fixed file-location reference: doc is now in Dropbox not iCloud.</td></tr>
