@@ -326,6 +326,7 @@
     <li><a href="#deploy-environments">Deployment environments (dev / staging / production)</a></li>
     <li><a href="#payments-architecture">Payments architecture (Stripe — idempotency · ledger · webhooks)</a></li>
     <li><a href="#multi-tenancy">Multi-tenancy architecture (for SaaS / multi-org projects)</a></li>
+    <li><a href="#feed-architecture">Feed architecture (Instagram-style — fan-out · push/pull hybrid · Redis)</a></li>
     <li><a href="#changelog">Document changelog</a></li>
   </ol>
 </nav>
@@ -912,7 +913,7 @@ print(result)</code></pre>
   <li><strong>Install:</strong> <code>npm install @convex-dev/action-cache</code> (requires existing Convex project).</li>
   <li><strong>How it works:</strong> wraps any Convex action; caches result keyed by action name + arguments. Optional TTL. Daily cron cleans up expired entries.</li>
   <li><strong>Source:</strong> <a href="https://github.com/get-convex/action-cache">github.com/get-convex/action-cache</a> · <a href="https://www.convex.dev/components/action-cache">convex.dev/components/action-cache</a></li>
-  <li><strong>When relevant:</strong> only if the project is built on Convex (a serverless backend platform). Asi's typical Next.js + Supabase projects don't use Convex — see equivalents below.</li>
+  <li><strong>When relevant:</strong> any project where caching expensive actions matters. Asi's <em>current</em> default stack is Next.js + Supabase, but Convex is a real alternative — pickable for new projects when its strengths (real-time reactivity, serverless functions, built-in scheduling) fit the brief. The fact that one project uses Supabase doesn't lock the next one out of Convex. See equivalents below for when staying on Supabase makes sense.</li>
 </ul>
 
 <p><strong>For Asi's Next.js + Supabase stack — the equivalents:</strong></p>
@@ -1017,6 +1018,9 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 
 <h3>4.6 Deployment &amp; environments</h3>
 
+<h4>Feed architecture (Instagram-style) <span class="meta">(IG · 2026-05-29 · reel DYCbWHGD1r1)</span></h4>
+<p>4-version progression: naive query-on-read → fan-out on write → hybrid push/pull (celebrities pulled, normals pushed) → Redis-backed inboxes. Full architecture diagram + per-version implementation checklist + "when to skip this entirely" decision table + audit prompt. See <a href="#feed-architecture">Section 14 — Feed architecture</a>.</p>
+
 <h4>Multi-tenancy architecture for SaaS / multi-org projects <span class="meta">(IG · 2026-05-29 · reel DY4jQHeR4Gb)</span></h4>
 <p>3 reel rules: tenant_id everywhere, RLS at the DB level, indexes for actual access patterns. Verified ✅ and extended with 6 critical additions (tenant routing patterns, <code>FORCE ROW LEVEL SECURITY</code>, PgBouncer gotcha, composite indexes, connection-pool partitioning, backup boundaries) + 3 models comparison + pre-build checklist + retrofit checklist + audit prompt. See <a href="#multi-tenancy">Section 13 — Multi-tenancy architecture</a>.</p>
 
@@ -1032,7 +1036,7 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 <p>3 things every error message must do: <strong>what happened, why, what's next</strong>. Don't dump stack traces (security risk too). Don't say "Something went wrong" (vague, breaks trust at payment time). Don't fail silently (worst — AI tool default). Full anti-pattern table + 8-line implementation checklist + ready prompt to audit existing code. See <a href="#ux-patterns">Section 10 — UX patterns</a>.</p>
 
 <h4>Caching for slow API / DB calls <span class="meta">(IG · 2026-05-29 · reel DY257b6xGCE)</span></h4>
-<p>General lesson: cache expensive/repeat calls. Reel recommends Convex Action Cache (only relevant if on Convex). For Asi's Next.js + Supabase stack: built-in <code>fetch()</code> revalidation, Upstash Redis, TanStack Query, materialized views. Full mapping + audit prompt at <a href="#reels">Section 4.2 — Performance &amp; scaling</a>.</p>
+<p>General lesson: cache expensive/repeat calls. Reel recommends <strong>Convex Action Cache</strong> — solid component for any Convex project. Asi's <em>current</em> default stack is Next.js + Supabase, but Convex is a legitimate choice for new projects when it fits. For Supabase-stack equivalents: built-in <code>fetch()</code> revalidation, Upstash Redis, TanStack Query, materialized views. Full mapping + audit prompt at <a href="#reels">Section 4.2 — Performance &amp; scaling</a>.</p>
 
 <h4>Empty states — first impression UX <span class="meta">(IG · 2026-05-29 · reel DY5PkUjyhMv · "Building with good UX" Part 8)</span></h4>
 <p>3 kinds of empty (first-time / no-results / achievement) — each needs different treatment. Good empty state tells WHY empty + WHAT to do next + doesn't feel broken. Includes per-page checklist + audit prompt. See <a href="#ux-empty-states">Section 10.3 — Empty states</a>.</p>
@@ -2156,14 +2160,236 @@ Don't make any DB changes. Just produce the audit report.</code></pre>
 </div>
 </section>
 
+<section class="major" id="feed-architecture">
+<h2>14. Feed architecture (Instagram-style — fan-out · push/pull hybrid · Redis)</h2>
+<div class="section-body">
+
+<p>Source: IG reel <code>DYCbWHGD1r1</code> (2026-05-29) — a clean 4-version progression for building a home feed (Instagram, X, threads, any "follow people → see their posts" app). Same structure as Section 12 (Payments architecture): each version fixes a real failure mode of the previous.</p>
+
+<div class="note">
+<strong>When this section applies:</strong> any project with a <em>follow</em> graph and a <em>feed</em>. Examples: social apps, community platforms, multi-author blogs/newsletters with subscribers, internal tools where staff "follow" projects, marketplaces with seller follows. <strong>If your project has thousands of users producing content that gets shown to followers, you need this architecture before you have it as a problem.</strong>
+</div>
+
+<h3>14.1 Version 1 — Naive: query-on-read</h3>
+
+<p>The default flow Claude/GPT writes for "show me a feed":</p>
+<ol>
+  <li>User opens app.</li>
+  <li>Server runs one big SQL query: <em>"give me all posts from everyone this person follows, ordered by time, limit 50."</em></li>
+  <li>JOIN posts × followers, sort, return.</li>
+</ol>
+
+<p><strong>Works fine for:</strong> first thousand users. Single user follows a handful, posts are sparse, query is fast.</p>
+
+<p><strong>Where it breaks:</strong> the average user follows ~200 people. Power users follow ~2,000. Each opens the app ~30× a day. Even with good indexes, the query has to fetch + merge + filter + rank recent posts across thousands of followed accounts <em>every single time</em>. Database melts.</p>
+
+<h3>14.2 Version 2 — Fan-out on write</h3>
+
+<p>Flip the model. <strong>Do the work at write time, not at read time.</strong></p>
+
+<ol>
+  <li>User posts a photo.</li>
+  <li>Server figures out who follows that user.</li>
+  <li>For each follower, append the new post ID to that follower's "inbox" (a per-user feed list, often in Redis).</li>
+  <li>When a follower opens the app: fetch their inbox (cheap cache read), then fetch the actual post details from Postgres.</li>
+</ol>
+
+<p><strong>Now read is a single cheap key lookup.</strong> The expensive part — finding posts to show — was already done at write time.</p>
+
+<p><strong>Where this still breaks:</strong> celebrities. One user has 80M followers. They post one photo → 80M inbox writes hit your queue. The whole system stalls behind one Ronaldo sneeze.</p>
+
+<h3>14.3 Version 3 — Hybrid push/pull (the part most teams get wrong)</h3>
+
+<p>The mistake: picking one model for everyone. <strong>You don't have to.</strong></p>
+
+<table>
+<tr><th>User type</th><th>Strategy</th><th>Why</th></tr>
+<tr><td><strong>Normal user</strong> (≤ 100K followers)</td><td><strong>Push</strong> — fan-out on write to follower inboxes</td><td>Few followers per post — cheap to push. Read stays fast.</td></tr>
+<tr><td><strong>Celebrity</strong> (&gt; 100K followers)</td><td><strong>Pull</strong> — don't push at all. Keep a per-celebrity "author feed cache" with their recent posts. At read time, merge it in.</td><td>Pushing to millions of inboxes is the disaster. Pulling a small list of celebrities a user follows at read time is cheap.</td></tr>
+</table>
+
+<p><strong>At read time:</strong></p>
+<ol>
+  <li>Fetch user's pre-built inbox (normal users' posts).</li>
+  <li>Fetch the celebrity author-feed caches for each celebrity this user follows.</li>
+  <li>Merge by time, return top 50.</li>
+</ol>
+
+<p><strong>The 80M-write problem disappears.</strong> The threshold (100K) is arbitrary — pick whatever matches your actual follower distribution.</p>
+
+<h3>14.4 Version 4 — Move feeds to Redis (separate the load)</h3>
+
+<p>In V3, inboxes are still in your main database. Millions of temporary feed writes still hit the same DB that holds your real post data.</p>
+
+<p><strong>Separation:</strong></p>
+<ul>
+  <li><strong>Postgres</strong> — source of truth for actual posts, users, follows, comments.</li>
+  <li><strong>Redis</strong> — hot feed inboxes. Each user's inbox is a sorted set (ordered by timestamp), capped at ~800 entries ("no one scrolls past 800").</li>
+</ul>
+
+<p><strong>Result:</strong></p>
+<ul>
+  <li>Feed loads drop to single-digit milliseconds.</li>
+  <li>Main DB barely sees feed traffic — basically free scaling for reads.</li>
+  <li>Inbox eviction is automatic (the sorted-set cap drops oldest).</li>
+</ul>
+
+<h3>14.5 The complete final architecture</h3>
+
+<div class="copy-block">
+<pre><code>┌──────────────┐    upload photo    ┌──────────────────────┐
+│     USER     │ ─────────────────→ │      POSTGRES        │
+└──────────────┘                    │ posts | users | follows │
+                                    └──────────┬───────────┘
+                                               │
+                                               │ post created event
+                                               ↓
+                                    ┌──────────────────────┐
+                                    │   FAN-OUT SERVICE    │
+                                    │                      │
+                                    │ Is user celebrity?   │
+                                    │   ├─ YES (≥100K) →   │
+                                    │   │   PULL strategy: │
+                                    │   │   write to       │
+                                    │   │   author-feed    │
+                                    │   │   cache, that's  │
+                                    │   │   it. No fan-out.│
+                                    │   │                  │
+                                    │   └─ NO (&lt;100K) →    │
+                                    │       PUSH strategy: │
+                                    │       fan-out to     │
+                                    │       follower       │
+                                    │       inboxes        │
+                                    │       (Redis sorted  │
+                                    │       sets)          │
+                                    └──────────────────────┘
+
+──── On feed load: ────────────────────────────────────────────
+
+┌──────────────┐  open feed   ┌─────────────────────────────┐
+│     USER     │ ───────────→ │    FEED READ SERVICE        │
+└──────────────┘              │                             │
+                              │ 1. Read user's Redis inbox  │
+                              │    (push'd posts from       │
+                              │    non-celebrities)         │
+                              │                             │
+                              │ 2. For each celebrity user  │
+                              │    follows, pull their      │
+                              │    author-feed cache        │
+                              │                             │
+                              │ 3. Merge by timestamp,      │
+                              │    return top 50            │
+                              │                             │
+                              │ 4. Hydrate post details     │
+                              │    from Postgres            │
+                              └─────────────────────────────┘</code></pre>
+</div>
+
+<h3>14.6 When to skip this entire section</h3>
+
+<p>Most projects <strong>never</strong> need this. Don't over-engineer.</p>
+
+<table>
+<tr><th>Skip if</th><th>Build it if</th></tr>
+<tr><td>Project has &lt; 1K users</td><td>Project has a real follow graph + UGC</td></tr>
+<tr><td>Project has no follow graph (feed is global / curated)</td><td>You're seeing slow feed queries even with indexes</td></tr>
+<tr><td>Project's "feed" is just a sorted list of all items (no per-user filtering)</td><td>The same user opens the app 10+ times a day</td></tr>
+<tr><td>Project's user count is unlikely to 10× in the next year</td><td>You have any user with &gt; 10K followers and growing</td></tr>
+</table>
+
+<p><strong>The right time to build V2+ is when V1 starts being slow.</strong> Build V3 when you have your first celebrity. Build V4 when your DB CPU is dominated by feed reads. Don't pre-build a Twitter-scale system for 50 users.</p>
+
+<h3>14.7 Implementation checklist (per version)</h3>
+
+<div class="copy-block">
+<pre><code>V2 — Fan-out on write (when migrating from V1):
+
+[ ] Create per-user inbox storage (Redis sorted set; key like `feed:{user_id}`)
+[ ] Background job triggered on every new post:
+    [ ] Look up post author's followers (paginated if > 10K)
+    [ ] For each follower, ZADD(inbox_key, timestamp, post_id)
+    [ ] Cap inbox size (ZREMRANGEBYRANK to keep latest N entries)
+[ ] Replace feed-read query: ZREVRANGE inbox + post-id batch lookup
+[ ] Backfill: pre-populate inboxes from recent posts at deploy time
+[ ] Monitor: inbox write throughput, fan-out lag (post created → all inboxes updated)
+
+V3 — Hybrid push/pull (when first user hits ~100K followers):
+
+[ ] Choose threshold (default: 100K — adjust to your distribution)
+[ ] Add `is_celebrity` flag on user (computed from follower_count, updated daily)
+[ ] On post create:
+    [ ] IF author is celebrity → write only to author_feed_cache:{author_id}, skip fan-out
+    [ ] ELSE → fan-out as in V2
+[ ] On feed read:
+    [ ] Read user's inbox (non-celebrity posts)
+    [ ] For each celebrity user follows, ZREVRANGE author_feed_cache:{celeb_id}
+    [ ] Merge by timestamp, return top 50
+[ ] Monitor: fan-out queue depth (should drop dramatically after celebrity exclusion)
+
+V4 — Move to Redis (when Postgres is dominated by feed traffic):
+
+[ ] Provision Redis (Upstash, Railway, Redis Cloud, or self-hosted)
+[ ] Migrate inboxes from Postgres tables to Redis sorted sets
+[ ] Migrate author-feed caches to Redis lists or sorted sets
+[ ] Cap inbox at 800 entries (or whatever matches your actual scroll behavior)
+[ ] Postgres remains: posts, users, follows, comments — source of truth
+[ ] Implement Redis disaster recovery: snapshot strategy + replay-from-Postgres
+    script if Redis is lost</code></pre>
+</div>
+
+<h3>14.8 Real-world variations to consider</h3>
+
+<ul>
+  <li><strong>Ranking, not just chronological</strong> — modern feeds aren't pure time-sorted. They use ML ranking. You can still use the same fan-out architecture; the ranking layer sits on top of the merged feed before returning to the user.</li>
+  <li><strong>Read receipts / seen state</strong> — store per-user "last seen" timestamp; truncate inbox by that to avoid re-showing old posts.</li>
+  <li><strong>Pre-warm inbox for new follows</strong> — when user A follows user B, decide: do you backfill A's inbox with B's recent posts? Most apps don't (cheap UX cost; lets new follows feel fresh on next post).</li>
+  <li><strong>Deleted posts</strong> — when a post is deleted, you may have already pushed it to millions of inboxes. Either: (a) lazy-delete (filter out at read time), (b) eager-delete (tombstone propagation). Lazy is cheaper but leaves stale entries.</li>
+  <li><strong>Privacy changes</strong> — private accounts that become public, blocks, mutes — same problem as deletes. Lazy filter at read time is the standard answer.</li>
+</ul>
+
+<h3>14.9 Audit prompt</h3>
+
+<div class="copy-block">
+<pre><code>This project has a feed feature. Audit the current implementation against the
+4-version model:
+
+V1 (naive): single SQL query at read time joining followers × posts
+V2 (fan-out on write): pre-built inboxes
+V3 (hybrid push/pull): celebrities pulled, normal users pushed
+V4 (Redis-backed inboxes): Postgres for posts, Redis for feed state
+
+For each version, report:
+- V1: file:line of the feed-load query. Severity = HIGH if this is the only path
+  and there's any growth path.
+- V2: do per-user inboxes exist? Where are they stored? file:line of fan-out
+  trigger. Is fan-out async (queued) or sync (blocking the post-create response)?
+- V3: is there a celebrity-exclusion path? At what threshold? file:line of the
+  branch. Is there an author-feed cache for celebrities? file:line.
+- V4: is Redis (or equivalent) in front of feed reads? What's the inbox cap?
+  How is Redis loss recovered (replay from Postgres)?
+
+For each gap, output: {version, status, file:line evidence, severity (CRIT/HIGH/MED),
+recommended fix}.
+
+Cross-reference: does the codebase use Supabase Realtime, Convex reactivity, or
+push notifications for "new post arrived" hints? Those are complementary, not
+substitutes for fan-out — note their presence.
+
+Don't change code. Just the audit.</code></pre>
+</div>
+
+</div>
+</section>
+
 <section class="major" id="changelog">
-<h2>14. Document changelog</h2>
+<h2>15. Document changelog</h2>
 <div class="section-body">
 
 <p>Append a row here every time we update this file. Newest at the top.</p>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-29 (latest+6)</td><td>Added Section 14: Feed architecture (Instagram-style social feed) — 4-version progression from naive SQL query to fan-out-on-write to push/pull hybrid (celebrities pulled, normals pushed) to Redis-backed inboxes. Includes full architecture diagram, "when to skip this entirely" decision table, per-version implementation checklists, real-world variations (ML ranking, deletes, privacy), and audit prompt. From IG reel DYCbWHGD1r1. Also: fixed wording in Section 4.2 caching subsection — Convex Action Cache is a real choice for new projects, not "only if you're already on Convex" (Asi correctly pushed back on the original framing).</td></tr>
 <tr><td>2026-05-29 (latest+5)</td><td>Added Section 10.3 — Empty states (Part 8 of "Building with good UX", reel DY5PkUjyhMv): 3 kinds of empty (first-time / no-results / achievement), per-page checklist, audit prompt. Also added to Section 4.2: Caching for slow API/DB calls (reel DY257b6xGCE) — general lesson + Convex Action Cache (specific) + Next.js/Supabase equivalents table + caching audit prompt.</td></tr>
 <tr><td>2026-05-29 (latest+4)</td><td><strong>Added Section 13: Multi-tenancy architecture for SaaS / multi-org projects.</strong> From IG reel DY4jQHeR4Gb. Verified the 3 reel rules (tenant_id everywhere, RLS at DB level, indexes for actual access patterns) and extended with 6 critical additions the reel missed (tenant context routing patterns, FORCE ROW LEVEL SECURITY trap, PgBouncer/RLS gotcha, composite indexes, connection-pool partitioning, backup/restore boundaries). Includes 3 models comparison (single-DB shared-schema / schema-per-tenant / DB-per-tenant), pre-build 13-line checklist, retrofit 6-phase plan for live apps, and a Claude audit prompt. Per Asi's request: "clear instructions for big projects."</td></tr>
 <tr><td>2026-05-29 (latest+3)</td><td>Added to Section 3.3: OpenOSINT (14-tool autonomous OSINT agent via MCP server). Verified real per Asi's "check this" question. Includes 4 use cases for client work (pre-engagement recon, asset-exposure deliverable, personal monitoring) and prominent legal warnings (Israeli computer law, GDPR, CFAA — authorized targets only). From IG reel DY15Vh_h4Ji.</td></tr>
@@ -2184,7 +2410,7 @@ Don't make any DB changes. Just produce the audit report.</code></pre>
 <ul>
   <li>Append findings to the relevant section — don't rebuild the whole HTML.</li>
   <li>For a brand new topic, add a new <code>&lt;h3&gt;</code> or <code>&lt;h4&gt;</code> under the most appropriate section. Update the <a href="#how-to-use">TOC</a> at the top.</li>
-  <li>For every change, add a row to <a href="#changelog">Section 14</a> with date + summary.</li>
+  <li>For every change, add a row to <a href="#changelog">Section 15</a> with date + summary.</li>
   <li>Keep the runbook (<code>security_audit_runbook.md</code>) and this HTML in sync — the runbook is the canonical procedural source, this HTML is the index/browsable view.</li>
   <li>Don't break the styling — the CSS is inlined in <code>&lt;style&gt;</code>. If you add new structural elements (e.g., a new card type), add the CSS rule too.</li>
 </ul>
