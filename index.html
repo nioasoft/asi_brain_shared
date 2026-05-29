@@ -325,6 +325,7 @@
     <li><a href="#ux-patterns">UX patterns that AI tools get wrong (error states, loading, forms…)</a></li>
     <li><a href="#deploy-environments">Deployment environments (dev / staging / production)</a></li>
     <li><a href="#payments-architecture">Payments architecture (Stripe — idempotency · ledger · webhooks)</a></li>
+    <li><a href="#multi-tenancy">Multi-tenancy architecture (for SaaS / multi-org projects)</a></li>
     <li><a href="#changelog">Document changelog</a></li>
   </ol>
 </nav>
@@ -957,6 +958,9 @@ print(result)</code></pre>
 <p>Audited the USDC maker bot's dependencies on 2026-05-17 against the list of compromised packages from the disclosure. Result: clean — no exposure. Re-audit any new <code>requirements.txt</code> or <code>package.json</code> additions against published IOC lists for the next 6 months.</p>
 
 <h3>4.6 Deployment &amp; environments</h3>
+
+<h4>Multi-tenancy architecture for SaaS / multi-org projects <span class="meta">(IG · 2026-05-29 · reel DY4jQHeR4Gb)</span></h4>
+<p>3 reel rules: tenant_id everywhere, RLS at the DB level, indexes for actual access patterns. Verified ✅ and extended with 6 critical additions (tenant routing patterns, <code>FORCE ROW LEVEL SECURITY</code>, PgBouncer gotcha, composite indexes, connection-pool partitioning, backup boundaries) + 3 models comparison + pre-build checklist + retrofit checklist + audit prompt. See <a href="#multi-tenancy">Section 13 — Multi-tenancy architecture</a>.</p>
 
 <h4>Payments architecture deep dive (Stripe) <span class="meta">(IG · 2026-05-29 · reel DY1g56bk9_o)</span></h4>
 <p>4-version progression: naive → idempotency keys → immutable ledger → webhooks. Each version fixes a real failure of the previous. Full breakdown + final architecture diagram + 14-line pre-launch checklist + audit prompt at <a href="#payments-architecture">Section 12 — Payments architecture</a>.</p>
@@ -1764,14 +1768,251 @@ severity, fix recommendation}. Don't change code yet — just the audit.</code><
 </div>
 </section>
 
+<section class="major" id="multi-tenancy">
+<h2>13. Multi-tenancy architecture (for SaaS / multi-org projects)</h2>
+<div class="section-body">
+
+<p>Source: IG reel <code>DY4jQHeR4Gb</code> (2026-05-29) — a follower was building a school management system: 50 schools, 20K users, 3 portals per school (admin / staff / students). The reel's framing was the right framing: <em>"Multi-tenancy is not a feature, it's an architecture decision. Make it before you build, not after."</em></p>
+
+<p>Asi asked: <em>"verify, extend, add to the doc as clear instructions for big projects."</em> Verified against current (2026) production patterns; extended with the practical pitfalls the reel didn't cover.</p>
+
+<div class="note">
+<strong>When this section applies:</strong> any client project where multiple independent organizations / businesses / schools / accounts use the same app but must not see each other's data. Examples: SaaS platforms, agency tools, school systems, marketplaces with multiple sellers, multi-clinic medical systems, multi-restaurant ordering apps (yes — Giggsi's old digital-menu would have qualified). If you're building for <strong>one</strong> company with one team, skip this section.
+</div>
+
+<h3>13.1 The 3 reel rules (verified — these are correct, but incomplete)</h3>
+
+<ol>
+  <li><strong>Add <code>tenant_id</code> to every table.</strong> Student table, attendance table, fee records — every single row needs to know which org it belongs to. ✅ <strong>Confirmed correct</strong> — this is the dominant 2026 pattern across all production multi-tenant SaaS guides.</li>
+  <li><strong>Enforce isolation at the database level, not the app code.</strong> Use Row-Level Security so the DB itself blocks cross-tenant access. App code is the first line; DB is the last. ✅ <strong>Confirmed correct</strong> — RLS adds 1–5% overhead, removes entire categories of app-code bugs from the security surface. See <a href="#step-2-supabase">Section 2b — Supabase RLS</a> for canonical policy syntax.</li>
+  <li><strong>Design schema for actual access patterns.</strong> Students queried by school, attendance by date, fees by status — each needs its own index. ✅ <strong>Confirmed correct</strong> — "20K users is nothing for Postgres; bad schema makes 400 users feel slow."</li>
+</ol>
+
+<h3>13.2 What the reel missed (critical additions)</h3>
+
+<h4>Addition 1 — How does the app tell Postgres which tenant?</h4>
+
+<p>This is the <em>most fragile</em> part of multi-tenant RLS — not the policies themselves, but how reliably your app sets the tenant context on every query. Three common patterns:</p>
+
+<table>
+<tr><th>Pattern</th><th>How tenant is identified</th><th>How RLS gets it</th><th>When to use</th></tr>
+<tr><td><strong>Subdomain</strong></td><td><code>acme.yourapp.com</code> vs <code>beta.yourapp.com</code></td><td>Middleware resolves subdomain → tenant lookup → set <code>SET LOCAL app.current_tenant = '...'</code> on each request</td><td>Best for B2B SaaS with clear org boundaries (Asi's typical client)</td></tr>
+<tr><td><strong>JWT claim</strong></td><td><code>tenant_id</code> in the auth token</td><td>Supabase's <code>auth.jwt() -&gt;&gt; 'tenant_id'</code> in policies</td><td>Best for Supabase Auth — already built-in</td></tr>
+<tr><td><strong>Path prefix</strong></td><td><code>/org/acme/dashboard</code></td><td>Middleware extracts org slug → same as subdomain pattern</td><td>Fallback when subdomains are hard (consumer-facing, no DNS control)</td></tr>
+</table>
+
+<h4>Addition 2 — <code>FORCE ROW LEVEL SECURITY</code> (the trap)</h4>
+
+<p>Teams set up RLS, write policies, test → it works. Then in production, the table <em>owner</em> can bypass policies entirely. Result: an RLS-enabled table that's <em>still</em> wide open from the admin role.</p>
+
+<p><strong>Always run this:</strong></p>
+<div class="copy-block">
+<pre><code>ALTER TABLE students ENABLE ROW LEVEL SECURITY;
+ALTER TABLE students FORCE ROW LEVEL SECURITY;  -- The critical second line</code></pre>
+</div>
+
+<p>The <code>FORCE</code> variant makes policies apply to the table owner too. Without it, anyone connecting as the schema owner sees everything regardless of policies.</p>
+
+<h4>Addition 3 — PgBouncer + RLS gotcha</h4>
+
+<p>If you're behind PgBouncer (Supabase production, self-hosted scaling, etc.) in <strong>transaction mode</strong>, it resets session variables between transactions. If your tenant context is set via <code>SET LOCAL</code> in a session variable, it gets reset — RLS then runs with no tenant context and returns either everything or nothing.</p>
+
+<p><strong>Fixes:</strong></p>
+<ul>
+  <li>Use <strong>session mode</strong> in PgBouncer (fewer connections, but session vars persist).</li>
+  <li>OR set the tenant context inside every transaction explicitly: <code>BEGIN; SET LOCAL app.current_tenant = '...'; ... ; COMMIT;</code>.</li>
+  <li>OR reference the JWT directly in policies (Supabase pattern — <code>auth.jwt() -&gt;&gt; 'tenant_id'</code>) so no session var is needed.</li>
+</ul>
+
+<h4>Addition 4 — Indexing</h4>
+
+<p>Multi-tenant tables need <em>composite</em> indexes leading with <code>tenant_id</code>:</p>
+<div class="copy-block">
+<pre><code>-- BAD: index doesn't help RLS filter to find the right tenant first
+CREATE INDEX idx_students_grade ON students(grade);
+
+-- GOOD: tenant_id leads, so the RLS scan starts narrow
+CREATE INDEX idx_students_tenant_grade ON students(tenant_id, grade);
+
+-- For every common query pattern:
+CREATE INDEX idx_attendance_tenant_date  ON attendance(tenant_id, date);
+CREATE INDEX idx_fees_tenant_status      ON fees(tenant_id, status);</code></pre>
+</div>
+
+<p>Without <code>tenant_id</code> leading, Postgres scans the full index then filters — fine at 1K rows, painful at 1M.</p>
+
+<h4>Addition 5 — Connection pooling and tenant routing</h4>
+
+<p>At scale (50+ tenants, high traffic), don't run all tenants through the same connection pool. Two patterns:</p>
+<ul>
+  <li><strong>One pool, all tenants</strong> — simple, but a slow query from tenant A can starve tenant B. Good up to ~100 active tenants.</li>
+  <li><strong>Pool-per-tenant or pool-per-bucket</strong> — partition tenants into N buckets by hash; each bucket has its own pool. A misbehaving tenant only affects their bucket-mates.</li>
+</ul>
+
+<h4>Addition 6 — Backup / restore boundaries</h4>
+
+<p>Single-DB multi-tenancy makes backup easy but tenant-level restore hard. If one school says <em>"restore our data to last Tuesday"</em>, you can't just restore the DB — you'd overwrite all 49 other schools. Build a tenant-level export/import path early.</p>
+
+<h3>13.3 The 3 multi-tenancy models — pick before you build</h3>
+
+<table>
+<tr><th>Model</th><th>How</th><th>Pros</th><th>Cons</th><th>When</th></tr>
+<tr>
+  <td><strong>Single DB, shared schema</strong> <span class="pill ok">2026 default</span></td>
+  <td>One Postgres DB. All tenant tables have <code>tenant_id</code>. RLS enforces isolation.</td>
+  <td>Cheap. Easy to onboard tenants. Easy to add schema changes (one migration).</td>
+  <td>Noisy-neighbor risk. Tenant-level backup is harder. Compliance audits may push back.</td>
+  <td>Start here for 99% of projects. Only move off this if you hit a real constraint.</td>
+</tr>
+<tr>
+  <td><strong>Single DB, schema-per-tenant</strong></td>
+  <td>One DB, but each tenant has its own Postgres schema (<code>tenant_acme.students</code>).</td>
+  <td>Stronger isolation by accident. Tenant-level backup easier. No <code>tenant_id</code> column needed.</td>
+  <td>Migrations × N tenants — schema drift is real. Tooling support varies.</td>
+  <td>Regulated industries (health, finance) where shared-schema is a non-starter.</td>
+</tr>
+<tr>
+  <td><strong>DB-per-tenant</strong></td>
+  <td>Each tenant gets their own Postgres instance.</td>
+  <td>Strongest isolation. Per-tenant scaling. Easy "delete tenant."</td>
+  <td>Expensive. Onboarding adds infrastructure. Cross-tenant analytics painful.</td>
+  <td>Enterprise tier only — usually for tenants paying >$1K/mo.</td>
+</tr>
+</table>
+
+<h3>13.4 Pre-build checklist (if you're starting a multi-tenant project today)</h3>
+
+<div class="copy-block">
+<pre><code>[ ] Decided model: single-DB shared-schema / schema-per-tenant / DB-per-tenant
+    (default: single-DB shared-schema)
+[ ] Tenant identification strategy chosen: subdomain / JWT claim / path prefix
+[ ] tenant_id column on every business table (even tables you "won't query by tenant")
+[ ] tenant_id is NOT NULL with a foreign-key constraint to tenants(id)
+[ ] ENABLE ROW LEVEL SECURITY on every tenant table
+[ ] FORCE ROW LEVEL SECURITY on every tenant table  ← critical, easy to forget
+[ ] SELECT/INSERT/UPDATE/DELETE policies for every tenant table
+    (with WITH CHECK on insert/update — see Section 2b)
+[ ] Every common query pattern has an index that leads with tenant_id
+[ ] Middleware sets tenant context BEFORE any DB query runs
+    (test: a request with no tenant context should fail closed, not see everything)
+[ ] PgBouncer mode chosen with awareness of session-var behavior
+    (transaction mode → use JWT-in-policy pattern OR per-tx SET LOCAL)
+[ ] Tenant onboarding path defined: how does a new tenant get a tenant_id?
+    Self-serve signup? Admin provision? Both?
+[ ] Tenant offboarding path defined: GDPR right-to-be-forgotten = full deletion
+    of that tenant_id. Have a script ready before launch, not after the first request.
+[ ] Cross-tenant operations (analytics dashboards, billing) bypass RLS via
+    a separate connection / role — document which queries are intentionally
+    cross-tenant and why.
+[ ] Backups support per-tenant export — a script that dumps all rows where
+    tenant_id = X across all tables, runnable on demand.
+[ ] Tests: "user from tenant A tries to access tenant B's data" returns 403/404,
+    not their own data and not B's data. Test SELECT, INSERT (try to put tenant B
+    on a record), UPDATE (try to reassign tenant_id), DELETE.</code></pre>
+</div>
+
+<h3>13.5 Production checklist (if you're already running and need to retrofit)</h3>
+
+<div class="note">
+<strong>This is the dangerous case.</strong> Adding multi-tenancy to a live app requires careful migration — you may have data without tenant boundaries, code without tenant awareness, and users who currently see what they shouldn't. Move slowly.
+</div>
+
+<div class="copy-block">
+<pre><code>Phase 1 — Audit:
+[ ] Inventory: list every table that should be tenant-scoped vs global
+    (e.g., countries, products = global; orders, users, sessions = tenant-scoped)
+[ ] For each tenant-scoped table, count rows that currently have no clear tenant.
+    These are technical debt — decide where they go.
+
+Phase 2 — Add tenant_id (nullable first, NOT NULL later):
+[ ] ALTER TABLE foo ADD COLUMN tenant_id UUID;
+[ ] Backfill tenant_id based on best-effort heuristic (user's org, source domain, etc.)
+[ ] Investigate any rows that can't be assigned — likely test data, soft-delete them.
+[ ] Set NOT NULL + FK constraint.
+
+Phase 3 — Add RLS (start permissive, tighten):
+[ ] ENABLE ROW LEVEL SECURITY on each table.
+[ ] Create a policy USING (true) initially — this is permissive (RLS technically
+    on but nothing filtered). Allows you to deploy the RLS infrastructure without
+    breaking anything.
+[ ] Verify all app paths still work.
+[ ] Replace USING (true) with the real tenant filter, one table at a time.
+[ ] After each table: smoke-test all user paths.
+
+Phase 4 — Tighten + FORCE:
+[ ] Add WITH CHECK clauses for INSERT/UPDATE (prevents tenant_id reassignment).
+[ ] FORCE ROW LEVEL SECURITY on each table.
+[ ] Audit logs: monitor for queries that return 0 rows where they used to return
+    rows — indicates a missing tenant context somewhere.
+
+Phase 5 — Indexes:
+[ ] Add composite indexes leading with tenant_id for common query patterns.
+[ ] Drop old single-column indexes that are now redundant.
+
+Phase 6 — Hardening:
+[ ] Penetration test: try to access tenant B's data while logged in as tenant A
+    (web request, API call, GraphQL query, every entry point).
+[ ] Confirm cross-tenant operations (analytics, billing) work via the separate
+    privileged role/connection — not via the regular app connection.</code></pre>
+</div>
+
+<h3>13.6 Audit prompt for a Claude session</h3>
+
+<div class="copy-block">
+<pre><code>This project may need multi-tenancy. Audit its current state:
+
+1. List every table in the database. For each, classify:
+   - global (reference data — countries, products)
+   - tenant-scoped (user-owned data — orders, profiles, etc.)
+   - ambiguous (could go either way — explain why)
+
+2. For each tenant-scoped table, report:
+   - Does it have a tenant_id column? (Y/N)
+   - Is it NOT NULL? (Y/N)
+   - Is there an FK to tenants(id)? (Y/N)
+   - Is RLS enabled? (Y/N)
+   - Is RLS FORCED? (Y/N — critical, easy to forget)
+   - How many SELECT/INSERT/UPDATE/DELETE policies?
+   - Does it have a composite index leading with tenant_id? (Y/N)
+
+3. For each global table, confirm RLS is DISABLED (or has a USING (true) policy)
+   so cross-tenant queries don't break.
+
+4. Code audit: grep the codebase for every database query (Prisma findMany,
+   Drizzle select, raw SQL). For each, identify whether tenant scoping happens
+   at the route level. If RLS is on, this is belt+suspenders; if RLS is off,
+   it's required.
+
+5. Output a table: table_name | category | tenant_id_status | rls_status |
+   force_rls | policies | leading_index | risk_level | one_line_fix
+
+6. End with: "TOP 3 GAPS" — the 3 highest-impact things to fix first.
+
+Don't make any DB changes. Just produce the audit report.</code></pre>
+</div>
+
+<h3>13.7 References (verified sources)</h3>
+<ul>
+  <li><a href="https://www.thenile.dev/blog/multi-tenant-rls">Shipping multi-tenant SaaS using Postgres RLS</a> (Nile — opinionated guide)</li>
+  <li><a href="https://aws.amazon.com/blogs/database/multi-tenant-data-isolation-with-postgresql-row-level-security/">AWS — Multi-tenant data isolation with PostgreSQL RLS</a> (canonical reference)</li>
+  <li><a href="https://gsoftconsulting.com/en/blog/building-multi-tenant-saas-2026">Building a Multi-Tenant SaaS in 2026: Pitfalls and Production Patterns</a> (current production patterns)</li>
+  <li><a href="https://www.simplyblock.io/blog/underated-postgres-multi-tenancy-with-row-level-security/">Underrated Postgres: Multi-Tenancy with RLS</a> (covers the PgBouncer gotcha)</li>
+  <li><a href="https://www.techbuddies.io/2026/01/01/how-to-implement-postgresql-row-level-security-for-multi-tenant-saas/">PostgreSQL RLS for Multi-Tenant SaaS</a> (step-by-step)</li>
+  <li><a href="https://www.wellally.tech/blog/postgres-multi-tenant-database-row-level-security">HealthTech case study</a> (regulated-industry perspective — schema-per-tenant trade-offs)</li>
+</ul>
+
+</div>
+</section>
+
 <section class="major" id="changelog">
-<h2>13. Document changelog</h2>
+<h2>14. Document changelog</h2>
 <div class="section-body">
 
 <p>Append a row here every time we update this file. Newest at the top.</p>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-29 (latest+4)</td><td><strong>Added Section 13: Multi-tenancy architecture for SaaS / multi-org projects.</strong> From IG reel DY4jQHeR4Gb. Verified the 3 reel rules (tenant_id everywhere, RLS at DB level, indexes for actual access patterns) and extended with 6 critical additions the reel missed (tenant context routing patterns, FORCE ROW LEVEL SECURITY trap, PgBouncer/RLS gotcha, composite indexes, connection-pool partitioning, backup/restore boundaries). Includes 3 models comparison (single-DB shared-schema / schema-per-tenant / DB-per-tenant), pre-build 13-line checklist, retrofit 6-phase plan for live apps, and a Claude audit prompt. Per Asi's request: "clear instructions for big projects."</td></tr>
 <tr><td>2026-05-29 (latest+3)</td><td>Added to Section 3.3: OpenOSINT (14-tool autonomous OSINT agent via MCP server). Verified real per Asi's "check this" question. Includes 4 use cases for client work (pre-engagement recon, asset-exposure deliverable, personal monitoring) and prominent legal warnings (Israeli computer law, GDPR, CFAA — authorized targets only). From IG reel DY15Vh_h4Ji.</td></tr>
 <tr><td>2026-05-29 (latest+2)</td><td><strong>UX overhaul:</strong> all 13 sections are now <em>collapsible</em> — click the section header to expand or collapse. By default everything is collapsed; the TOC is the entry point. Internal links auto-open the target section and flash it briefly. "Expand all" / "Collapse all" buttons in the footer. Plus added Section 10.2 — Forms (Part 6 of "Building with good UX" series, reel DYyzrdpIixM): 6 rules to reduce form friction, grep patterns, per-form checklist, audit prompt.</td></tr>
 <tr><td>2026-05-29 (latest+1)</td><td>Added to Section 3.3: Browser Use (Python AI browser automation, MIT, 93K+ GitHub stars). Verified real after Asi's "is this real?" question. From IG reel DY4wy9xSiN8. Includes install snippet + 4 Asi-specific use cases.</td></tr>
@@ -1790,7 +2031,7 @@ severity, fix recommendation}. Don't change code yet — just the audit.</code><
 <ul>
   <li>Append findings to the relevant section — don't rebuild the whole HTML.</li>
   <li>For a brand new topic, add a new <code>&lt;h3&gt;</code> or <code>&lt;h4&gt;</code> under the most appropriate section. Update the <a href="#how-to-use">TOC</a> at the top.</li>
-  <li>For every change, add a row to <a href="#changelog">Section 13</a> with date + summary.</li>
+  <li>For every change, add a row to <a href="#changelog">Section 14</a> with date + summary.</li>
   <li>Keep the runbook (<code>security_audit_runbook.md</code>) and this HTML in sync — the runbook is the canonical procedural source, this HTML is the index/browsable view.</li>
   <li>Don't break the styling — the CSS is inlined in <code>&lt;style&gt;</code>. If you add new structural elements (e.g., a new card type), add the CSS rule too.</li>
 </ul>
