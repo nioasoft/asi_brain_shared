@@ -272,6 +272,7 @@
     <li><a href="#legal-compliance">Legal compliance for shipped apps (Privacy / ToS / CCPA / GDPR)</a></li>
     <li><a href="#ux-patterns">UX patterns that AI tools get wrong (error states, loading, forms…)</a></li>
     <li><a href="#deploy-environments">Deployment environments (dev / staging / production)</a></li>
+    <li><a href="#payments-architecture">Payments architecture (Stripe — idempotency · ledger · webhooks)</a></li>
     <li><a href="#changelog">Document changelog</a></li>
   </ol>
 </nav>
@@ -719,6 +720,33 @@ python main.py https://example.com --he  # Hebrew output</code></pre>
 </ol>
 <p><strong>Relevant for:</strong> client Next.js launches (Bashier, gan-tair, etc.) when you expect any meaningful traffic at launch. Add k6 to a pre-launch checklist.</p>
 
+<h4>Layer 11 — Load balancing &amp; scaling failure modes <span class="meta">(IG · 2026-05-29 · reel DY5KQSsRpfz · "13-layer prod stack" series)</span></h4>
+
+<p>From the same series as Layer 8 / RLS (see Step 2b in Section 2). The reel framed it as: <em>"This is the one that breaks at the worst possible moment."</em> Three specific failure modes to design against, not just one general "scale up":</p>
+
+<table>
+<tr><th>What breaks</th><th>Why</th><th>Fix</th></tr>
+<tr>
+  <td><strong>DB connections max out</strong></td>
+  <td>Postgres default = ~100 connections. Without pooling, every request opens a new one. At 100 concurrent users, everyone sees errors.</td>
+  <td>Turn on connection pooling. Supabase: built-in (pgbouncer mode in dashboard). Self-hosted: PgBouncer in transaction mode.</td>
+</tr>
+<tr>
+  <td><strong>Cold start stampede</strong></td>
+  <td>On Vercel/Netlify, serverless functions spin down at idle. When traffic spikes, all functions cold-start at once — seconds instead of ms per request. Compounds: slow responses → users retry → more cold starts.</td>
+  <td>Use Vercel's "Fluid Compute" or set a min-instance count if available. Pre-warm critical functions with a cron-triggered heartbeat. For Next.js: prefer edge runtime for cheap fast-path routes.</td>
+</tr>
+<tr>
+  <td><strong>External API rate-limit hits</strong></td>
+  <td>OpenAI, Stripe, etc. all have per-account limits. 100 users triggering AI calls at once means 100 simultaneous requests to OpenAI — rate limit kicks in. <strong>App doesn't crash</strong> — it just stops working for some users. Worse than a crash because it's silent.</td>
+  <td>Queue expensive operations. Don't call OpenAI inline on user requests — push to a queue (BullMQ / Upstash QStash / SQS), respond immediately, deliver result async (webhook to client, polling, or WebSocket).</td>
+</tr>
+</table>
+
+<p><strong>The framing line that matters:</strong> <em>"Layer 11 isn't about handling a million users. It's about surviving 100 at once without falling over."</em> Most Asi-scale client projects never need more than this — but they do need this much.</p>
+
+<p><strong>How this pairs with Section 11 (Deployment environments):</strong> staging is where you stress-test these. Run k6 against staging with 100 concurrent users <strong>before</strong> launch. Watch DB connection count, watch cold-start latency, watch external API error rates. Fix what breaks. Then ship.</p>
+
 <h3>4.3 Scraping &amp; automation</h3>
 
 <h4>Cloak Browser <span class="meta">(IG · 2026-05-23 · reel DYnWDihzQqF)</span></h4>
@@ -750,6 +778,9 @@ python main.py https://example.com --he  # Hebrew output</code></pre>
 <p>Audited the USDC maker bot's dependencies on 2026-05-17 against the list of compromised packages from the disclosure. Result: clean — no exposure. Re-audit any new <code>requirements.txt</code> or <code>package.json</code> additions against published IOC lists for the next 6 months.</p>
 
 <h3>4.6 Deployment &amp; environments</h3>
+
+<h4>Payments architecture deep dive (Stripe) <span class="meta">(IG · 2026-05-29 · reel DY1g56bk9_o)</span></h4>
+<p>4-version progression: naive → idempotency keys → immutable ledger → webhooks. Each version fixes a real failure of the previous. Full breakdown + final architecture diagram + 14-line pre-launch checklist + audit prompt at <a href="#payments-architecture">Section 12 — Payments architecture</a>.</p>
 
 <h4>3 environments in 30 minutes <span class="meta">(IG · 2026-05-29 · reel DYuVqaeRi8q)</span></h4>
 <p>The "one environment trap" — your laptop = production. Fix: <code>main</code> = prod, <code>dev</code> = staging, Vercel/Netlify free preview deploys, no manual deploys ever. Full setup checklist + Vercel config + resource-separation table + migration prompt for existing projects. See <a href="#deploy-environments">Section 11 — Deployment environments</a>.</p>
@@ -1310,13 +1341,161 @@ Don't make any code changes yet. Just produce the audit + plan, then I'll review
 </div>
 </section>
 
+<section class="major" id="payments-architecture">
+<h2>12. Payments architecture (Stripe — idempotency · ledger · webhooks)</h2>
+
+<p>Source: IG reel <code>DY1g56bk9_o</code> (2026-05-29). The reel walked through 4 progressively-better versions of a payment system, each one fixing a real failure mode of the previous. This is the architecture every shipped payments integration needs — anything simpler is a future incident.</p>
+
+<div class="note">
+<strong>Relevance for Asi specifically:</strong> any client project that involves charging users (a subscription, a one-off purchase, a marketplace, even a tip jar) needs this. The naive "JS sends to Stripe, server marks order paid" approach works for hackathons and ships double-charges in production.
+</div>
+
+<h3>12.1 Version 1 — the naive approach (what AI defaults to)</h3>
+
+<p>The default flow that Claude / GPT writes if you say "integrate Stripe":</p>
+<ol>
+  <li>User enters card details in the browser.</li>
+  <li>Stripe.js library collects card details securely and sends them directly to Stripe (your server never sees raw card data — good).</li>
+  <li>Stripe processes the payment, returns a response to your server.</li>
+  <li>Your server marks the order as paid in the database.</li>
+  <li>Send receipt email.</li>
+</ol>
+
+<p><strong>Why it breaks:</strong> if the user's request times out (Wi-Fi hiccup, slow server) and they retry, Stripe charges them a second time. Now you have a duplicate transaction and an angry customer. <strong>This will happen.</strong> Not "might" — "will." Network is unreliable; users press buttons twice.</p>
+
+<h3>12.2 Version 2 — idempotency keys</h3>
+
+<p><strong>Fix the duplicate-charge problem.</strong></p>
+<ol>
+  <li>The client generates a unique UUID per payment attempt (the "idempotency key").</li>
+  <li>That UUID is sent with the request.</li>
+  <li>Your server stores the key in a database row <strong>before</strong> doing anything else (a check + insert in one transaction).</li>
+  <li>If the same key shows up again — return the stored result instead of charging again.</li>
+</ol>
+
+<p><strong>What this fixes:</strong> retries are now safe. The user could double-tap submit, lose Wi-Fi, refresh the page — the server only charges once.</p>
+
+<p><strong>Stripe also supports idempotency natively:</strong> pass <code>Idempotency-Key: &lt;uuid&gt;</code> as an HTTP header on the request to Stripe — Stripe itself will refuse to double-charge. Belt and suspenders: do both (server-side dedupe + Stripe-side dedupe).</p>
+
+<h3>12.3 Version 3 — immutable ledger (event log, not status row)</h3>
+
+<p><strong>Fix the audit-trail problem.</strong></p>
+
+<p>A real payment has a lifecycle: <em>initiated → authorized → captured → maybe refunded → maybe disputed 3 months later</em>. If you keep updating one <code>status</code> column on one row, you throw away the audit trail. When a regulator or finance person asks "what happened on this payment?", you have nothing to show.</p>
+
+<p><strong>Fix:</strong> every state change is a NEW row. Append-only.</p>
+
+<table>
+<tr><th>id</th><th>payment_id</th><th>event_type</th><th>amount</th><th>created_at</th></tr>
+<tr><td>1</td><td>pi_abc123</td><td>payment_initiated</td><td>$50.00</td><td>2026-05-29 10:00:00</td></tr>
+<tr><td>2</td><td>pi_abc123</td><td>payment_authorized</td><td>$50.00</td><td>2026-05-29 10:00:02</td></tr>
+<tr><td>3</td><td>pi_abc123</td><td>payment_captured</td><td>$50.00</td><td>2026-05-29 10:00:05</td></tr>
+<tr><td>4</td><td>pi_abc123</td><td>refund_initiated</td><td>$20.00</td><td>2026-06-15 14:30:00</td></tr>
+<tr><td>5</td><td>pi_abc123</td><td>refund_completed</td><td>$20.00</td><td>2026-06-15 14:30:08</td></tr>
+</table>
+
+<p>The "current status" of a payment is computed from the full event history — not stored as a single field. If events arrive out of order (which happens with webhooks under load), your system doesn't get confused — it looks at the full timeline.</p>
+
+<h3>12.4 Version 4 — webhooks (don't sit and wait)</h3>
+
+<p><strong>Fix the asynchronous-reality problem.</strong></p>
+
+<p>Payments aren't synchronous. You send to Stripe, get a <em>pending</em> back. The actual authorization might come 10 seconds later. The capture might happen the next day. Your server can't sit there waiting.</p>
+
+<p><strong>Fix:</strong> Stripe sends webhook events to your server every time a payment status changes.</p>
+
+<p><strong>Your webhook handler must:</strong></p>
+<ol>
+  <li><strong>Verify the signature</strong> — confirm the message is really from Stripe (compare the <code>Stripe-Signature</code> header against the webhook secret). Otherwise attackers can spoof "payment completed" webhooks.</li>
+  <li><strong>Check the event ID</strong> — Stripe might deliver the same event twice. Look up the event ID in your ledger; if it's already there, return 200 OK and skip.</li>
+  <li><strong>Append a new row to the ledger</strong> — never update an existing row.</li>
+  <li><strong>Return 200 OK quickly</strong> (under 5 seconds). If Stripe doesn't get 200, it retries. If your handler is slow, you get retry storms.</li>
+</ol>
+
+<h3>12.5 The complete final architecture</h3>
+
+<div class="copy-block">
+<pre><code>┌─────────────┐      idempotency_key (UUID)       ┌─────────────┐
+│   CLIENT    │ ─────────────────────────────────→ │   SERVER    │
+└─────────────┘                                    └──────┬──────┘
+                                                          │
+                                                          │ 1. Insert "payment_initiated" row in ledger
+                                                          │    (with idempotency_key as unique constraint)
+                                                          │
+                                                          │ 2. Call Stripe.paymentIntents.create()
+                                                          │    with same Idempotency-Key header
+                                                          ↓
+                                                    ┌─────────────┐
+                                                    │   STRIPE    │
+                                                    └──────┬──────┘
+                                                           │
+                                       webhooks (over the next minutes/hours/weeks)
+                                                           ↓
+┌──────────────────────────────────────────────────────────────────────┐
+│  Webhook handler:                                                    │
+│  1. Verify signature (against webhook secret)                        │
+│  2. Look up event_id in ledger — if found, return 200 OK             │
+│  3. Append new row to ledger                                         │
+│  4. Return 200 OK (under 5s)                                         │
+└──────────────────────────────────────────────────────────────────────┘
+
+Current payment status = derive from full event history for that payment_id</code></pre>
+</div>
+
+<h3>12.6 Pre-launch payments checklist</h3>
+
+<div class="copy-block">
+<pre><code>[ ] Card data never touches your server — Stripe.js or Stripe Elements only
+[ ] Idempotency key (UUID) on every payment attempt — client-generated
+[ ] Idempotency key stored server-side BEFORE any Stripe call
+[ ] Same key passed to Stripe via Idempotency-Key header (belt + suspenders)
+[ ] Ledger table is APPEND-ONLY: no UPDATE statements, only INSERTs
+[ ] Current payment status computed from event history, not a status column
+[ ] Webhook endpoint verifies Stripe signature (do NOT skip — see OWASP A07)
+[ ] Webhook handler dedupes by event_id (Stripe can send duplicates)
+[ ] Webhook handler returns 200 OK in under 5 seconds (queue the work if needed)
+[ ] Failed webhook attempts logged with full request body for replay/debug
+[ ] Stripe webhook secret stored as env var, NEVER hardcoded
+[ ] Test mode (sk_test_...) on staging; live mode (sk_live_...) only on prod
+[ ] Refund and dispute events handled (not just payment_intent.succeeded)
+[ ] PCI compliance: confirmed Stripe handles it for you (SAQ A) — don't store
+    card numbers ever, not even truncated, not even encrypted</code></pre>
+</div>
+
+<h3>12.7 Audit prompt (existing payments integration)</h3>
+
+<div class="copy-block">
+<pre><code>This project integrates Stripe. Audit the payments architecture against the
+4-version model:
+
+Version 1 (naive): direct charge, mark order paid
+Version 2 (idempotency keys)
+Version 3 (immutable event ledger)
+Version 4 (webhooks for async events)
+
+For each version, report whether the current code implements it:
+- v1: file:line of the basic Stripe call. If only this exists, severity = CRITICAL.
+- v2: do we generate + store idempotency keys client-side and server-side?
+  Do we pass `Idempotency-Key` to Stripe? file:line of evidence.
+- v3: do we use append-only event rows, or is there an UPDATE on a payment
+  status field? file:line of evidence. Severity = HIGH if missing.
+- v4: do we have a webhook endpoint? Does it verify the Stripe signature?
+  Does it dedupe by event_id? file:line of each check. Severity = HIGH for
+  any missing piece.
+
+Output: a table of {version, status [present/partial/missing], file:line evidence,
+severity, fix recommendation}. Don't change code yet — just the audit.</code></pre>
+</div>
+</section>
+
 <section class="major" id="changelog">
-<h2>12. Document changelog</h2>
+<h2>13. Document changelog</h2>
 
 <p>Append a row here every time we update this file. Newest at the top.</p>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-29 (latest)</td><td>Added Section 12: Payments architecture deep dive (Stripe — 4-version progression: naive → idempotency keys → immutable ledger → webhooks). Includes architecture diagram, 14-line pre-launch checklist, audit prompt for existing integrations. From IG reel DY1g56bk9_o. Also added to Section 4.2: "Layer 11 — Load balancing &amp; scaling failure modes" (DB connections, cold start stampede, external API rate limits) from reel DY5KQSsRpfz (same "13-layer prod stack" series as Layer 8/RLS).</td></tr>
 <tr><td>2026-05-29 (later)</td><td>Added to Section 3.1: Anthropic Security Guidance plugin — official 3-layer real-time security plugin for Claude Code (edit-time pattern match + post-turn model scan + commit-time deep scan). 157K installs. From IG reel DY2BIfqtIHD.</td></tr>
 <tr><td>2026-05-29</td><td>Added Section 11: Deployment environments (dev / staging / production). 3-environment setup via Vercel branch-based previews, full Vercel setup checklist, separation table for DB/Stripe/email/OAuth/analytics, retrofit migration prompt. From IG reel DYuVqaeRi8q.</td></tr>
 <tr><td>2026-05-26</td><td>Added Step 2b to the runbook: Supabase Row-Level Security deep dive (audit checklist, canonical policies SQL with USING / WITH CHECK gotchas, ready audit prompt). From IG reel DYxb9K-RC7n ("Layer 8 of 13: Security"). Critical complement to Step 2 IDOR tests for any Supabase-backed project.</td></tr>
@@ -1331,7 +1510,7 @@ Don't make any code changes yet. Just produce the audit + plan, then I'll review
 <ul>
   <li>Append findings to the relevant section — don't rebuild the whole HTML.</li>
   <li>For a brand new topic, add a new <code>&lt;h3&gt;</code> or <code>&lt;h4&gt;</code> under the most appropriate section. Update the <a href="#how-to-use">TOC</a> at the top.</li>
-  <li>For every change, add a row to <a href="#changelog">Section 12</a> with date + summary.</li>
+  <li>For every change, add a row to <a href="#changelog">Section 13</a> with date + summary.</li>
   <li>Keep the runbook (<code>security_audit_runbook.md</code>) and this HTML in sync — the runbook is the canonical procedural source, this HTML is the index/browsable view.</li>
   <li>Don't break the styling — the CSS is inlined in <code>&lt;style&gt;</code>. If you add new structural elements (e.g., a new card type), add the CSS rule too.</li>
 </ul>
