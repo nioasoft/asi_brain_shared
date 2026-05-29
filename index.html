@@ -733,6 +733,58 @@ python main.py https://example.com --he  # Hebrew output</code></pre>
   <li>For legally sensitive scraping (anything behind login, anything paywalled, anything competitor-targeted): respect the target site's ToS and Israeli/EU law. The tool removes the technical barrier but not the legal one.</li>
 </ol>
 
+<h4>OpenOSINT <span class="pill ok">verified real</span> <span class="pill warn">authorized use only — legal sensitivity</span></h4>
+
+<p>AI-powered OSINT (Open-Source Intelligence) agent that runs autonomous investigations against a target (email / username / domain). From IG reel <code>DY15Vh_h4Ji</code> (2026-05-29). Asi asked: <em>"verify this"</em>.</p>
+
+<p><strong>Verified real:</strong> <a href="https://github.com/OpenOSINT/OpenOSINT">github.com/OpenOSINT/OpenOSINT</a> — official site at <a href="https://openosint.tech/">openosint.tech</a>. 14 intelligence tools, MCP server, AI-powered REPL, MIT-style open-source license.</p>
+
+<p><strong>How it works:</strong> describe a target in plain English (e.g., <code>investigate target@example.com</code>) → AI agent decides which tools to chain → returns a structured Markdown report. Tools include <code>holehe</code> (email reconnaissance), <code>sherlock</code> (300+ social platforms username search), <code>HaveIBeenPwned v3</code> (breach lookup), <code>python-whois</code> (domain WHOIS), subdomain enumeration, Google dorks.</p>
+
+<p><strong>Install:</strong></p>
+<div class="copy-block">
+<pre><code># PyPI:
+pip install openosint
+
+# OR from source:
+git clone https://github.com/OpenOSINT/OpenOSINT.git
+cd OpenOSINT
+pip install -e .</code></pre>
+</div>
+
+<p><strong>3 ways to run:</strong></p>
+<ol>
+  <li><strong>CLI</strong> — individual tools, no API key needed.</li>
+  <li><strong>Interactive REPL</strong> — AI-driven investigation, requires Claude/GPT API key.</li>
+  <li><strong>MCP server</strong> — connects directly to Claude Code or Claude Desktop, all tools exposed as Claude functions, no separate API key needed.</li>
+</ol>
+
+<p><strong>Why this is interesting for Asi:</strong></p>
+<ul>
+  <li><strong>Pre-engagement reconnaissance for client work</strong> — before pitching a security audit to a new client, run OpenOSINT on their public assets to find what's already exposed (leaked credentials, subdomains, etc.). Strong opener for the pitch.</li>
+  <li><strong>"Asset exposure check" as a deliverable</strong> — "here's what an attacker would learn about your company in 5 minutes" is a $500–2000 mini-deliverable for B2B clients.</li>
+  <li><strong>Personal monitoring</strong> — run periodically on your own domains (<code>giggsi.co.il</code>, etc.) and email (<code>asaf@giggsi.co.il</code>) to catch new breaches early.</li>
+  <li><strong>Pairs with</strong> Anthropic Security Guidance plugin (Section 3.1) and the custom <code>~/asibrain/security-scanner/</code> — those audit code/headers, OpenOSINT audits <em>exposure</em>.</li>
+</ul>
+
+<div class="note">
+<strong>⚠️ LEGAL — read before running:</strong>
+<ul>
+  <li>The repo states explicitly: <em>"For authorized security research only."</em></li>
+  <li>Running OSINT against <strong>anyone other than yourself or a client with written authorization</strong> is potentially illegal:
+    <ul>
+      <li><strong>Israel</strong>: חוק המחשבים — unauthorized intelligence gathering on a person can be a criminal offense.</li>
+      <li><strong>EU (GDPR)</strong>: profiling without consent is a lawful-basis problem even if all data is "public."</li>
+      <li><strong>US (CFAA)</strong>: some forms of OSINT can violate it.</li>
+    </ul>
+  </li>
+  <li><strong>Always have written authorization</strong> for any target except yourself.</li>
+  <li>Tools like HaveIBeenPwned have their own rate limits + ToS — review per-tool.</li>
+</ul>
+</div>
+
+<p><strong>References:</strong> <a href="https://github.com/OpenOSINT/OpenOSINT">GitHub repo</a> · <a href="https://openosint.tech/">openosint.tech</a> · <a href="https://medium.com/@tommasobertocchideveloper04/i-gave-claude-13-osint-superpowers-and-let-it-investigate-autonomously-bb9558977a8d">Author's writeup</a> · <a href="https://www.freecodecamp.org/news/build-autonomous-agent-in-python-using-claude/">freeCodeCamp tutorial on autonomous OSINT</a>.</p>
+
 <h4>Browser Use <span class="pill ok">verified real — 93K+ GitHub stars</span></h4>
 <p>An open-source Python framework for AI-driven browser automation. From IG reel <code>DY4wy9xSiN8</code> (2026-05-29). The reel framed it as "while everyone was watching ChatGPT Agent and Computer Use, some random developer quietly shipped a free Python framework that does exactly the same thing" — verified, it's real and serious.</p>
 
@@ -878,6 +930,9 @@ print(result)</code></pre>
 
 <h4>Browser Use <span class="meta">(IG · 2026-05-29 · reel DY4wy9xSiN8)</span></h4>
 <p><strong>Asi asked: "is this real?"</strong> Verified: yes. <a href="https://github.com/browser-use/browser-use">github.com/browser-use/browser-use</a>, <strong>93K+ stars</strong>, MIT, Fortune 500 trusted. AI agent that drives a real browser via plain-English tasks. Full evaluation + install + 4 use-cases for Asi (lead gen, competitor watch, trading data backfill, internal client tools) at <a href="#tools-watching">Section 3.3 — Tools to evaluate</a>.</p>
+
+<h4>OpenOSINT <span class="meta">(IG · 2026-05-29 · reel DY15Vh_h4Ji)</span></h4>
+<p><strong>Asi asked: "check this."</strong> Verified: real. <a href="https://github.com/OpenOSINT/OpenOSINT">github.com/OpenOSINT/OpenOSINT</a>. 14-tool autonomous OSINT agent (holehe, sherlock, breach lookup, WHOIS, subdomains, Google dorks). MCP server for Claude Code/Desktop. <strong>⚠️ Authorized-use-only — legal sensitivity</strong>. Full evaluation + install + 4 Asi-specific use cases + legal warnings at <a href="#tools-watching">Section 3.3 — Tools to evaluate</a>.</p>
 
 <h4>"Anthropic Cybersecurity Skills" library <span class="meta">(IG · 2026-05-25 · reel DYsVdwjgJke)</span></h4>
 <p>754 cybersecurity workflows for AI agents, Apache 2.0, mapped to MITRE ATT&amp;CK + NIST CSF + others. <strong>Not actually by Anthropic — community project by mukul975.</strong> See <a href="#tools-watching">Section 3.3 — Tools to evaluate</a> for full breakdown.</p>
@@ -1717,6 +1772,7 @@ severity, fix recommendation}. Don't change code yet — just the audit.</code><
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-29 (latest+3)</td><td>Added to Section 3.3: OpenOSINT (14-tool autonomous OSINT agent via MCP server). Verified real per Asi's "check this" question. Includes 4 use cases for client work (pre-engagement recon, asset-exposure deliverable, personal monitoring) and prominent legal warnings (Israeli computer law, GDPR, CFAA — authorized targets only). From IG reel DY15Vh_h4Ji.</td></tr>
 <tr><td>2026-05-29 (latest+2)</td><td><strong>UX overhaul:</strong> all 13 sections are now <em>collapsible</em> — click the section header to expand or collapse. By default everything is collapsed; the TOC is the entry point. Internal links auto-open the target section and flash it briefly. "Expand all" / "Collapse all" buttons in the footer. Plus added Section 10.2 — Forms (Part 6 of "Building with good UX" series, reel DYyzrdpIixM): 6 rules to reduce form friction, grep patterns, per-form checklist, audit prompt.</td></tr>
 <tr><td>2026-05-29 (latest+1)</td><td>Added to Section 3.3: Browser Use (Python AI browser automation, MIT, 93K+ GitHub stars). Verified real after Asi's "is this real?" question. From IG reel DY4wy9xSiN8. Includes install snippet + 4 Asi-specific use cases.</td></tr>
 <tr><td>2026-05-29 (latest)</td><td>Added Section 12: Payments architecture deep dive (Stripe — 4-version progression: naive → idempotency keys → immutable ledger → webhooks). Includes architecture diagram, 14-line pre-launch checklist, audit prompt for existing integrations. From IG reel DY1g56bk9_o. Also added to Section 4.2: "Layer 11 — Load balancing &amp; scaling failure modes" (DB connections, cold start stampede, external API rate limits) from reel DY5KQSsRpfz (same "13-layer prod stack" series as Layer 8/RLS).</td></tr>
