@@ -373,6 +373,7 @@
         <li><a href="#deploy-environments">8.3 Resource separation between environments</a></li>
         <li><a href="#deploy-environments">8.4 Migration prompt (existing project)</a></li>
         <li><a href="#deploy-environments">8.5 Serverless Postgres + database branching (Neon)</a></li>
+        <li><a href="#deploy-environments">8.6 The "no DevOps" stack (Sentry + Upstash + Railway)</a></li>
       </ol>
     </li>
   </ol>
@@ -1591,6 +1592,99 @@ production on Supabase), with reasoning under 200 words.
 Don't migrate anything yet. Just the analysis.</code></pre>
 </div>
 
+<h3>8.6 The "no DevOps" stack — monitoring, caching, deployment in an hour</h3>
+
+<p>Source: IG reel <code>DY7OKr4xruV</code> (2026-05-29). The reel's claim: <em>"Three tools and about an hour, no DevOps engineer required."</em> Verified — all three are real, mature, well-documented, and good fits for Asi's project scale.</p>
+
+<h4>The 3 tools (the reel's recommendation)</h4>
+
+<table>
+<tr><th>Tool</th><th>What it solves</th><th>Why it&rsquo;s the right choice</th></tr>
+<tr>
+  <td><strong><a href="https://sentry.io">Sentry</a></strong></td>
+  <td>Error tracking. Users see blank screens, you find out from the next bug report. Sentry catches every exception in real time, shows you what line broke and how often.</td>
+  <td>Industry standard. Free tier covers ~5K events/month, enough for most client projects. Drop-in Next.js wizard via <code>npx @sentry/wizard@latest -i nextjs</code>.</td>
+</tr>
+<tr>
+  <td><strong><a href="https://upstash.com">Upstash</a></strong></td>
+  <td>Caching + rate limiting. Your DB gets hit on every page load even when nothing changed. Bots can hammer your API and run up your bill.</td>
+  <td>Serverless Redis. Pay-per-request, free tier is 10K commands/day. <code>@upstash/redis</code> + <code>@upstash/ratelimit</code> packages are first-party. Already mentioned in Section 14.2 caching tools.</td>
+</tr>
+<tr>
+  <td><strong><a href="https://railway.app">Railway</a></strong></td>
+  <td>Deployment for anything beyond static pages — background jobs, scheduled tasks, persistent servers. Push code, it deploys. Set a schedule, it runs.</td>
+  <td>No Docker, no Kubernetes, no YAML. Best fit when Vercel/Netlify can&rsquo;t do what you need (long-running processes, cron jobs, full-server features). Cheaper than EC2 for small workloads.</td>
+</tr>
+</table>
+
+<h4>When each one matters for Asi specifically</h4>
+
+<ul>
+  <li><strong>Sentry</strong> — every client project. The day a client says "the site is broken" and you don't know which page is the win. Install on every Next.js delivery.</li>
+  <li><strong>Upstash</strong> — projects with login + dynamic content. Free tier handles most of Asi&rsquo;s client load. Also use the rate-limit package on every API route that touches a paid external API (OpenAI, Stripe) to prevent abuse.</li>
+  <li><strong>Railway</strong> — when a project needs <em>persistent</em> compute (always-on websocket, cron jobs, long-running queues). Asi&rsquo;s trading bots ARE Railway-shaped workloads but they currently run on his Mac mini — if he ever moves any bot to the cloud, Railway is the right choice for that exact reason.</li>
+</ul>
+
+<h4>1-hour setup checklist</h4>
+
+<div class="copy-block">
+<pre><code>SENTRY (15 min):
+[ ] Create Sentry account (free tier)
+[ ] Create project, choose Next.js as platform
+[ ] Run `npx @sentry/wizard@latest -i nextjs` in project root
+[ ] Set DSN in env vars (separate values for prod/preview/dev)
+[ ] Test: throw new Error("sentry test") in a route handler → confirm it appears
+    in Sentry dashboard within 30 seconds
+[ ] Set up Slack/email alerts for errors with >10 occurrences in 5 minutes
+
+UPSTASH (20 min):
+[ ] Create Upstash account (free tier)
+[ ] Create Redis database (closest region to Vercel deployment)
+[ ] Copy REST URL + token to env vars
+[ ] Install @upstash/redis: `npm i @upstash/redis`
+[ ] For rate limiting: `npm i @upstash/ratelimit`
+[ ] Wrap heaviest API route with rate limiter (10 req/min per IP for paid-API
+    routes, 100 req/min for cheap routes)
+[ ] Add caching to one slow query — confirm response time drops
+
+RAILWAY (25 min, only if needed):
+[ ] Create Railway account, connect GitHub
+[ ] New project → Deploy from GitHub repo
+[ ] Set up env vars in Railway dashboard
+[ ] If background job: add a cron schedule in railway.json
+[ ] Verify deploy succeeds + service is reachable
+[ ] Set up auto-deploy on push to specified branch</code></pre>
+</div>
+
+<h4>Audit prompt: should this project use these tools?</h4>
+
+<div class="copy-block">
+<pre><code>This project is about to ship. Audit whether it needs each of these tools:
+
+1. Sentry (error tracking):
+   - Does the project have ANY error handling that just console.logs and
+     swallows the error? (If yes → install Sentry.)
+   - Is there a way for the team to find out about production errors without
+     a user reporting them? (If no → install Sentry.)
+   - Recommend: install yes/no, with reasoning.
+
+2. Upstash (Redis + rate limiting):
+   - Does the project have an API route that calls a paid external API
+     (OpenAI, Stripe, etc.)? (If yes → consider rate limiting.)
+   - Is there a heavy/slow DB query repeated on most page loads? (If yes →
+     consider caching.)
+   - Recommend: install yes/no, with reasoning.
+
+3. Railway (persistent compute):
+   - Does the project need background jobs, scheduled tasks, or persistent
+     websocket connections? (If yes → Railway makes sense.)
+   - Is the project fully serverless-compatible (no long-running state)?
+     (If yes → stick with Vercel, skip Railway.)
+   - Recommend: install yes/no, with reasoning.
+
+Output as a 3-row table: tool | install? | reasoning. Don&rsquo;t install anything yet.</code></pre>
+</div>
+
 </div>
 </section>
 
@@ -2505,8 +2599,8 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 
 <h3>14.4 LLM &amp; agent infrastructure</h3>
 
-<h4>Giscard / LLM Guard / Rebuff <span class="meta">(IG · 2026-05-17)</span></h4>
-<p>See <a href="#tools-watching">Section 10.3 — Tools to evaluate</a>.</p>
+<h4>Giscard / LLM Guard / Rebuff <span class="meta">(IG · 2026-05-17, re-sent 2026-05-29 · reel DXQiWMVDfXg)</span></h4>
+<p>3 LLM-app security tools. Originally captured 2026-05-17; Asi re-shared the same reel on 2026-05-29 (already in the doc). See <a href="#tools-watching">Section 10.3 — Tools to evaluate</a> for the full breakdown.</p>
 
 <h4>Forge 8B + scaffolding pattern <span class="meta">(YouTube short · 2026-05-23 · t67C2WeDNvI)</span></h4>
 <p>See <a href="#tools-watching">Section 10.3 — Tools to evaluate</a>.</p>
@@ -2539,6 +2633,9 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 <h4>Serverless Postgres + database branching (Neon) <span class="meta">(IG · 2026-05-29 · reel DY1-cZaRlSD)</span></h4>
 <p>Scales to zero. Database branches like code branches. <code>main</code> = production, <code>dev</code>/<code>staging</code> branches free and instant. When Neon vs Supabase + setup checklist + audit prompt at <a href="#deploy-environments">Section 8.5</a>.</p>
 
+<h4>"No DevOps" stack: Sentry + Upstash + Railway <span class="meta">(IG · 2026-05-29 · reel DY7OKr4xruV)</span></h4>
+<p>3 tools, ~1 hour setup, replaces a DevOps engineer for most client projects: Sentry (error tracking), Upstash (Redis + rate limit), Railway (background jobs / persistent compute). Full 3-tool table + 1-hour checklist + audit prompt at <a href="#deploy-environments">Section 8.6</a>.</p>
+
 <h3>14.7 UX patterns</h3>
 
 <h4>Error states — what AI tools build wrong by default <span class="meta">(IG · 2026-05-25 · reel DYr7cKLIQo6 · "Building with good UX" Part 5)</span></h4>
@@ -2563,6 +2660,7 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-29 (post-restructure)</td><td>Added Section 8.6: "No DevOps" stack — Sentry (error tracking) + Upstash (Redis + rate-limit) + Railway (persistent compute). 1-hour setup checklist + audit prompt. From IG reel DY7OKr4xruV. Also noted that reel DXQiWMVDfXg (Giscard/LLM Guard/Rebuff) is a re-share of content already documented from 2026-05-17.</td></tr>
 <tr><td>2026-05-29 (RESTRUCTURE — bible-style)</td><td><strong>Per Asi's request: full document restructure.</strong> Sections reorganized chronological → topical, grouped into 9 Parts (Foundation / Security &amp; Compliance / Architecture Playbooks / Pre-Delivery Operations / UX Patterns / Tools &amp; Skills / Design / Operational Knowledge / Index). New numbering: Foundation (1) · Security: runbook (2), OWASP claims (3), Legal (4) · Architecture playbooks: Multi-tenancy (5), Payments (6), Feed (7) · Deployment (8) · UX (9) · Tools (10) · Design (11) · Bot patterns (12) · Prompts (13) · Reel index (14) · Changelog (15). All 41 H3 subsection numbers renumbered to match. All 27 cross-references between sections updated. TOC fully rebuilt with all subsections + Part dividers. Also added Section 8.5: Serverless Postgres + database branching (Neon) from IG reel DY1-cZaRlSD (when Neon vs Supabase + setup checklist + audit prompt).</td></tr>
 <tr><td>2026-05-29 (latest+6)</td><td>Added Section 14: Feed architecture (Instagram-style social feed) — 4-version progression from naive SQL query to fan-out-on-write to push/pull hybrid (celebrities pulled, normals pushed) to Redis-backed inboxes. Includes full architecture diagram, "when to skip this entirely" decision table, per-version implementation checklists, real-world variations (ML ranking, deletes, privacy), and audit prompt. From IG reel DYCbWHGD1r1. Also: fixed wording in Section 4.2 caching subsection — Convex Action Cache is a real choice for new projects, not "only if you're already on Convex" (Asi correctly pushed back on the original framing).</td></tr>
 <tr><td>2026-05-29 (latest+5)</td><td>Added Section 9.3 — Empty states (Part 8 of "Building with good UX", reel DY5PkUjyhMv): 3 kinds of empty (first-time / no-results / achievement), per-page checklist, audit prompt. Also added to Section 4.2: Caching for slow API/DB calls (reel DY257b6xGCE) — general lesson + Convex Action Cache (specific) + Next.js/Supabase equivalents table + caching audit prompt.</td></tr>
