@@ -314,6 +314,7 @@
         <li><a href="#step-2-supabase">2.2b Supabase Row-Level Security deep dive</a></li>
         <li><a href="#step-3">2.3 Secrets hygiene</a></li>
         <li><a href="#step-4">2.4 One-command quality pass (<code>/security-review</code> + <code>/simplify</code>)</a></li>
+        <li><a href="#step-5">2.5 The "AI made this and ship today" 5-check list</a></li>
       </ol>
     </li>
     <li><a href="#api-claims">OWASP-grounded API security claims (fact-checked)</a></li>
@@ -322,6 +323,7 @@
         <li><a href="#legal-compliance">4.1 The 3-step checklist (~1 afternoon)</a></li>
         <li><a href="#legal-compliance">4.2 Pre-delivery legal checklist</a></li>
         <li><a href="#legal-compliance">4.3 Israel-specific notes</a></li>
+        <li><a href="#legal-compliance">4.4 IP / Trademark check before you fall in love with a name</a></li>
       </ol>
     </li>
   </ol>
@@ -374,6 +376,7 @@
         <li><a href="#deploy-environments">8.4 Migration prompt (existing project)</a></li>
         <li><a href="#deploy-environments">8.5 Serverless Postgres + database branching (Neon)</a></li>
         <li><a href="#deploy-environments">8.6 The "no DevOps" stack (Sentry + Upstash + Railway)</a></li>
+        <li><a href="#deploy-environments">8.7 Docker for non-Vercel workloads (small-image discipline)</a></li>
       </ol>
     </li>
   </ol>
@@ -672,6 +675,101 @@ git log -p --all -S "AKIA"    --source                2&gt;/dev/null | head -30 
   <li><code>/simplify</code> second — separate commit for code cleanup.</li>
   <li>Both run in cloud (paid). Use them for actual deliveries, not for every save.</li>
 </ol>
+
+<h3 id="step-5">2.5 The "AI made this and ship today" 5-check list</h3>
+
+<p>Sources: IG reels <code>DYDvMAFIHY7</code> + <code>DYcV1pdoG6X</code> (2026-05-29). Both reels covered the same theme — security mistakes AI tools make by default that you must catch before shipping. Consolidated here as a single fast-pass checklist for any Claude/GPT-built project right before delivery.</p>
+
+<div class="note">
+This duplicates content from Sections 2.2, 2.2b, and 2.3 — but it&rsquo;s grouped as a <strong>5-minute "right before deploy" check</strong> rather than a full audit. Run this in addition to the rest of the runbook, not instead of it.
+</div>
+
+<h4>The 5 checks (in priority order)</h4>
+
+<ol>
+  <li><strong>Service role key in client code = catastrophe.</strong> The Supabase / Firebase / etc. service-role key bypasses every RLS policy you&rsquo;ve set. If it&rsquo;s anywhere in <code>NEXT_PUBLIC_*</code>, in a client component, or in a bundled JS file — anyone who opens DevTools has full DB access. <strong>Server-side env var only.</strong> See <a href="#step-3">2.3 Secrets hygiene</a> for the grep command.</li>
+
+  <li><strong>RLS turned off for debugging — and never turned back on.</strong> Classic: 3 weeks ago you flipped RLS off to test a query, forgot. Now anyone with the DB URL can read everything. Re-enable RLS + write real policies for every table. See <a href="#step-2-supabase">2.2b Supabase RLS deep dive</a>.</li>
+
+  <li><strong>Login endpoint with no rate limiting.</strong> Without throttling, an attacker can try thousands of passwords per minute. Add basic rate limiting on the login route — <strong>5 attempts per IP per minute</strong> is the floor; add account-level throttling (10 attempts per email per hour) as the next layer.
+    <div class="copy-block">
+    <pre><code>// Example using @upstash/ratelimit on a Next.js API route (see Section 8.6)
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(5, "1 m"),
+});
+
+export async function POST(req) {
+  const ip = req.headers.get("x-forwarded-for") ?? "anonymous";
+  const { success } = await ratelimit.limit(`login:${ip}`);
+  if (!success) {
+    return new Response("Too many attempts. Try again in a minute.", { status: 429 });
+  }
+  // ... rest of login handler
+}</code></pre>
+    </div>
+  </li>
+
+  <li><strong><code>console.log</code> statements that print passwords or tokens.</strong> Debug prints during development that never got cleaned up. They end up in browser console logs, in Vercel/Railway logs, in Sentry events. Search the codebase:
+    <div class="copy-block">
+    <pre><code>grep -rEn 'console\.(log|debug|info|warn|error)' --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . \
+  | grep -iE "password|token|secret|api_?key|jwt|session"</code></pre>
+    </div>
+    Delete every match. If you actually need to log, log the user ID or event name — never the secret.
+  </li>
+
+  <li><strong><code>.env</code> in Git history.</strong> Adding to <code>.gitignore</code> AFTER an initial commit doesn&rsquo;t help — the file is still in history. Run the git-log check from <a href="#step-3">2.3 Secrets hygiene</a>. If anything shows up, <strong>rotate every key that was ever in there, today</strong>. The file isn&rsquo;t "removed" until you rewrite history AND rotate the secrets.</li>
+</ol>
+
+<h4>Frontend-only validation is not validation (related but separate)</h4>
+
+<p>Source: reel <code>DYDvMAFIHY7</code>. AI tools commonly add Zod / yup / react-hook-form validation on the form, no validation on the API route handler. A technical user opens DevTools, sends the request directly with bad data, and the backend accepts whatever. <strong>Backend validation is mandatory; frontend validation is UX.</strong></p>
+
+<ul>
+  <li>For every API route that takes input: validate the body server-side with the same schema you use on the client. Zod schemas work both places — share them.</li>
+  <li>Pattern: define schema once in <code>src/schemas/&lt;feature&gt;.ts</code>, import on both client and server, run <code>schema.parse()</code> on the server.</li>
+  <li>Audit grep: find routes that accept JSON without parsing it through a schema:
+    <div class="copy-block">
+    <pre><code>grep -rEn 'await req\.json\(\)' --include="*.ts" --include="*.tsx" .
+# For each: confirm the result is passed through a Zod/yup/io-ts schema BEFORE
+# being used. If used directly → backend validation missing.</code></pre>
+    </div>
+  </li>
+</ul>
+
+<h4>5-check audit prompt</h4>
+
+<div class="copy-block">
+<pre><code>Run a fast 5-check pre-ship security audit on this project. Don&rsquo;t do a full audit
+— just check these 5 specific things:
+
+1. Service role key exposure: grep for SUPABASE_SERVICE_ROLE_KEY, FIREBASE_ADMIN
+   patterns, or similar privileged keys. Report any that appear in client code,
+   NEXT_PUBLIC_ env vars, or any file that gets bundled to the browser.
+
+2. RLS status: list every table in the schema. For each, report whether RLS is
+   enabled. Flag any tenant-scoped table with RLS disabled.
+
+3. Login rate limiting: find the login API route. Report whether it has rate
+   limiting (look for @upstash/ratelimit, express-rate-limit, custom middleware).
+   If none, flag as CRIT.
+
+4. Console.log of secrets: grep for console.log statements containing variables
+   named password / token / secret / api_key / jwt / session. Report file:line
+   of each match.
+
+5. .env in git history: run `git log -p --all -S "API_KEY" -- "*.env*" | head -50`
+   and similar for SECRET, sk_live, AKIA. Report any matches and recommend
+   rotation.
+
+Output: a 5-row table { check_number, status (PASS / FAIL / CANT_TELL),
+file:line evidence, recommended action }.
+
+Don&rsquo;t change anything. Just the audit.</code></pre>
+</div>
 </div>
 </section>
 
@@ -800,6 +898,52 @@ git log -p --all -S "AKIA"    --source                2&gt;/dev/null | head -30 
 <div class="note">
 <strong>What this section is NOT:</strong> legal advice. Generators give you 80% coverage for free; the last 20% (anything custom about your client's product, anything cross-border, anything that touches financial data or minors) needs a real lawyer. Treat this section as "default to compliant" — when the project is anything more than a basic informational site, get human legal review.
 </div>
+
+<h3>4.4 IP / Trademark check before you fall in love with a name</h3>
+
+<p>Source: IG reel <code>DYpK8fsTKUe</code> (2026-05-29). Most "naming disaster" stories — cease-and-desist letters, app store removals, domain ransom demands — could&rsquo;ve been prevented by a 10-minute search before the founder fell in love with the name.</p>
+
+<h4>The 4-step name check (do this BEFORE you buy the domain)</h4>
+
+<ol>
+  <li><strong>Plain Google search</strong> — exact name + obvious variants. Are there companies, products, popular indie projects already using it? Quick "is this name already known for something else?" sanity check.</li>
+  <li><strong>Trademark databases</strong> — search where your clients / your business operates:
+    <ul>
+      <li><strong>Israel:</strong> <a href="https://il-trademarks.justice.gov.il/">il-trademarks.justice.gov.il</a> (רשם סימני המסחר)</li>
+      <li><strong>EU:</strong> <a href="https://euipo.europa.eu/">EUIPO</a></li>
+      <li><strong>US:</strong> <a href="https://www.uspto.gov/trademarks/search">USPTO TESS</a></li>
+      <li><strong>International:</strong> <a href="https://www.wipo.int/branddb/en/">WIPO Global Brand Database</a> — covers many jurisdictions in one search</li>
+    </ul>
+    Search by exact name + close variants. A registered trademark in the same category (Nice classification) is a strong block.
+  </li>
+  <li><strong>Domain + handles availability</strong> — even if the name is legally clear, if <code>name.com</code> is taken by an active business, you&rsquo;ll be confused with them forever. Quick check: namecheckr.com, Instabase, or just typing the name into the relevant domain registrars and Twitter/Instagram/TikTok search.</li>
+  <li><strong>App store check (mobile only)</strong> — search Apple App Store + Google Play for the exact name. App stores enforce naming uniqueness more strictly than the web, and a duplicate will be rejected at review.</li>
+</ol>
+
+<h4>When this matters for Asi specifically</h4>
+
+<ul>
+  <li><strong>Every client project that gets a brand-new name</strong> — Bashier, gan-tair, eishoron, etc. all started somewhere. Have the client run the 4-step check before they commit to a logo or domain. <strong>Cost: 15 minutes. Cost of skipping it: ranges from awkward to legal letter.</strong></li>
+  <li><strong>Asi&rsquo;s own products</strong> — if MasterOrder, the AliExpress affiliate bot, or any future project gets a public-facing name, run the check first. Same for Giggsi if it ever comes back.</li>
+  <li><strong>"asi brain shared"</strong> — this is a personal repo name with a personal domain, so trademark risk is essentially zero. But for any product-level naming, the rule applies.</li>
+</ul>
+
+<h4>Red flags during the check</h4>
+
+<ul>
+  <li>Trademark exists in the <strong>same category</strong> (same Nice class) → strong block.</li>
+  <li>Trademark exists in <strong>different category</strong> → usually fine, but if it&rsquo;s a famous brand (Apple, Google), they can still come after you under "famous mark" doctrine.</li>
+  <li>Cease-and-desist letters in the company&rsquo;s history (Google "[name] cease and desist") → they&rsquo;re known to enforce. Skip the name.</li>
+  <li>Many small businesses with similar names → "confusingly similar" risk. Pick a more distinctive name.</li>
+</ul>
+
+<h4>What to do if the name is taken</h4>
+
+<ul>
+  <li><strong>Pick a different name.</strong> 90% of the time this is the right answer. Brand-name love is sunk cost.</li>
+  <li><strong>Pick a different category.</strong> If the trademark is for "Acme Coffee" and you&rsquo;re building "Acme Project Management", you might be legally fine — but get a lawyer to confirm.</li>
+  <li><strong>License or buy.</strong> Only if the name is genuinely critical and the holder is willing. Rare.</li>
+</ul>
 </div>
 </section>
 
@@ -1685,6 +1829,78 @@ RAILWAY (25 min, only if needed):
 Output as a 3-row table: tool | install? | reasoning. Don&rsquo;t install anything yet.</code></pre>
 </div>
 
+<h3>8.7 Docker for non-Vercel workloads (the small-image discipline)</h3>
+
+<p>Source: IG reel <code>DXYh9CHihnt</code> (2026-05-29). The reel framed a junior-developer interview scenario: <em>"a 2GB Docker image — storage is cheap, who cares?"</em> The right answer is <strong>not</strong> about storage; it's about every deploy pulling 2GB, every container spinning up 2GB, every traffic spike multiplying the cost, and every extra package being an attack surface.</p>
+
+<div class="note">
+<strong>When this matters for Asi:</strong> Vercel handles Docker invisibly — you don&rsquo;t need this for client Next.js projects. <strong>Reach for this section when</strong>: (a) you move a trading bot from Mac mini to Railway/cloud, (b) a client asks for a self-hosted/on-prem deployment, (c) you build an MCP server you want others to run.
+</div>
+
+<h4>The 3 disciplines (verified, universally true)</h4>
+
+<ol>
+  <li><strong>Multi-stage builds.</strong> Stage 1 builds the app with all dev dependencies (TypeScript compiler, build tools). Stage 2 copies only the compiled output into a clean minimal final stage. Build tools never make it to production — saves size AND removes attack surface.</li>
+  <li><strong>Small base image.</strong> Don&rsquo;t use <code>node:18</code> (~900 MB). Use <code>node:18-alpine</code> (~50 MB) or <code>node:18-slim</code> (~150 MB). For Python: <code>python:3.12-slim</code> or <code>python:3.12-alpine</code>. For zero-shell production: <code>gcr.io/distroless/nodejs</code> or <code>gcr.io/distroless/python3</code> — no shell, no package manager, no attacker tools.</li>
+  <li><strong>Always have a <code>.dockerignore</code>.</strong> Same idea as <code>.gitignore</code>: keep <code>node_modules</code>, <code>.git</code>, test files, local <code>.env</code> out of your image. Most "huge image" surprises are someone accidentally copying <code>node_modules</code> in.</li>
+</ol>
+
+<h4>Minimum-viable <code>Dockerfile</code> for a Python trading bot</h4>
+
+<div class="copy-block">
+<pre><code># Stage 1: build dependencies in a fat builder
+FROM python:3.12-slim AS builder
+WORKDIR /build
+COPY requirements.txt .
+RUN pip install --user --no-cache-dir -r requirements.txt
+
+# Stage 2: minimal runtime
+FROM python:3.12-slim
+WORKDIR /app
+COPY --from=builder /root/.local /root/.local
+COPY . .
+ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
+CMD ["python", "bot.py"]</code></pre>
+</div>
+
+<h4>Minimum-viable <code>.dockerignore</code></h4>
+
+<div class="copy-block">
+<pre><code># keep junk out of the image
+.git
+.gitignore
+.env
+.env.*
+__pycache__
+*.pyc
+.pytest_cache
+node_modules
+.next
+dist
+build
+*.log
+*.md
+test/
+tests/
+docs/</code></pre>
+</div>
+
+<h4>Quick verification (after building)</h4>
+
+<div class="copy-block">
+<pre><code># Check image size
+docker images | grep your-image
+
+# What&rsquo;s actually IN the image?
+docker run --rm your-image find / -type f 2&gt;/dev/null | head -50
+
+# Are there any obvious build-tool leftovers?
+docker run --rm your-image which gcc make g++ apt</code></pre>
+</div>
+
+<p>If <code>which gcc</code> returns a path on a production image, you have build tools shipped — go back to multi-stage. Production images should fail every "which &lt;build-tool&gt;" lookup.</p>
+
 </div>
 </section>
 
@@ -2457,6 +2673,12 @@ For each finding give file:line and a 1-line fix. Don't write code yet.</code></
 
 <h3>14.1 Security-related reels</h3>
 
+<h4>3 security mistakes AI tools make on every project <span class="meta">(IG · 2026-05-29 · reel DYDvMAFIHY7)</span></h4>
+<p>Front-end-only validation, secrets in code, no authorization checks. Consolidated with reel DYcV1pdoG6X at <a href="#step-5">Section 2.5 — The "AI made this and ship today" 5-check list</a>.</p>
+
+<h4>5 auth checks before you ship <span class="meta">(IG · 2026-05-29 · reel DYcV1pdoG6X)</span></h4>
+<p>Service role key exposure, RLS turned off for debugging, no login rate-limit, console.log of secrets, .env in git history. Consolidated with reel DYDvMAFIHY7 at <a href="#step-5">Section 2.5</a>.</p>
+
 <h4>30-minute DIY security audit <span class="meta">(IG · 2026-05-23 · reel DYmoTKBgQjt)</span></h4>
 <ol>
   <li><strong>npm audit</strong> — fix red (Critical/High), update yellow (Moderate), ignore green (Low) if unreachable.</li>
@@ -2611,6 +2833,9 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 <h4>Legal compliance one-afternoon checklist <span class="meta">(IG · 2026-05-25 · reel DYrvI-fAPC2)</span></h4>
 <p>Privacy policy + ToS + CCPA/GDPR basics for shipped apps that collect user data. See <a href="#legal-compliance">Section 4 — Legal compliance</a>.</p>
 
+<h4>4 legal things before launching an app <span class="meta">(IG · 2026-05-29 · reel DYpK8fsTKUe)</span></h4>
+<p>Privacy policy + ToS + Data compliance (GDPR) — already covered in Sections 4.1–4.3. <strong>NEW:</strong> IP / Trademark check before falling in love with a name. Full 4-step name check + trademark databases + when to walk away from a name at <a href="#legal-compliance">Section 4.4</a>.</p>
+
 <h3>14.5 Supply-chain attacks</h3>
 
 <h4>Shai-Hulud npm/PyPI compromise <span class="meta">(FB video · 2026-05-15)</span></h4>
@@ -2636,6 +2861,9 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 <h4>"No DevOps" stack: Sentry + Upstash + Railway <span class="meta">(IG · 2026-05-29 · reel DY7OKr4xruV)</span></h4>
 <p>3 tools, ~1 hour setup, replaces a DevOps engineer for most client projects: Sentry (error tracking), Upstash (Redis + rate limit), Railway (background jobs / persistent compute). Full 3-tool table + 1-hour checklist + audit prompt at <a href="#deploy-environments">Section 8.6</a>.</p>
 
+<h4>2GB Docker image = your business problem <span class="meta">(IG · 2026-05-29 · reel DXYh9CHihnt)</span></h4>
+<p>Multi-stage builds, alpine/distroless base images, <code>.dockerignore</code>. Asi&rsquo;s typical Vercel/Mac mini workflow doesn&rsquo;t need this — relevant if a bot moves to Railway, a client wants self-hosted, or building MCP servers. Minimum Dockerfile + .dockerignore + verification commands at <a href="#deploy-environments">Section 8.7</a>.</p>
+
 <h3>14.7 UX patterns</h3>
 
 <h4>Error states — what AI tools build wrong by default <span class="meta">(IG · 2026-05-25 · reel DYr7cKLIQo6 · "Building with good UX" Part 5)</span></h4>
@@ -2660,6 +2888,7 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-29 (post-restructure +3)</td><td>Three additions: <strong>Section 2.5</strong> — "AI made this and ship today" 5-check list (consolidates reels DYDvMAFIHY7 + DYcV1pdoG6X: service-role key exposure, RLS off for debugging, login rate-limit, console.log of secrets, .env in git history; plus frontend/backend validation note). <strong>Section 4.4</strong> — IP / Trademark check before falling in love with a name (reel DYpK8fsTKUe): 4-step check, trademark databases (Israel/EU/US/WIPO), red flags. <strong>Section 8.7</strong> — Docker for non-Vercel workloads (reel DXYh9CHihnt): multi-stage builds, alpine/distroless, .dockerignore, minimal Dockerfile template for Python bots.</td></tr>
 <tr><td>2026-05-29 (post-restructure)</td><td>Added Section 8.6: "No DevOps" stack — Sentry (error tracking) + Upstash (Redis + rate-limit) + Railway (persistent compute). 1-hour setup checklist + audit prompt. From IG reel DY7OKr4xruV. Also noted that reel DXQiWMVDfXg (Giscard/LLM Guard/Rebuff) is a re-share of content already documented from 2026-05-17.</td></tr>
 <tr><td>2026-05-29 (RESTRUCTURE — bible-style)</td><td><strong>Per Asi's request: full document restructure.</strong> Sections reorganized chronological → topical, grouped into 9 Parts (Foundation / Security &amp; Compliance / Architecture Playbooks / Pre-Delivery Operations / UX Patterns / Tools &amp; Skills / Design / Operational Knowledge / Index). New numbering: Foundation (1) · Security: runbook (2), OWASP claims (3), Legal (4) · Architecture playbooks: Multi-tenancy (5), Payments (6), Feed (7) · Deployment (8) · UX (9) · Tools (10) · Design (11) · Bot patterns (12) · Prompts (13) · Reel index (14) · Changelog (15). All 41 H3 subsection numbers renumbered to match. All 27 cross-references between sections updated. TOC fully rebuilt with all subsections + Part dividers. Also added Section 8.5: Serverless Postgres + database branching (Neon) from IG reel DY1-cZaRlSD (when Neon vs Supabase + setup checklist + audit prompt).</td></tr>
 <tr><td>2026-05-29 (latest+6)</td><td>Added Section 14: Feed architecture (Instagram-style social feed) — 4-version progression from naive SQL query to fan-out-on-write to push/pull hybrid (celebrities pulled, normals pushed) to Redis-backed inboxes. Includes full architecture diagram, "when to skip this entirely" decision table, per-version implementation checklists, real-world variations (ML ranking, deletes, privacy), and audit prompt. From IG reel DYCbWHGD1r1. Also: fixed wording in Section 4.2 caching subsection — Convex Action Cache is a real choice for new projects, not "only if you're already on Convex" (Asi correctly pushed back on the original framing).</td></tr>
