@@ -894,6 +894,64 @@ print(result)</code></pre>
 </ol>
 <p><strong>Relevant for:</strong> client Next.js launches (Bashier, gan-tair, etc.) when you expect any meaningful traffic at launch. Add k6 to a pre-launch checklist.</p>
 
+<h4>Caching for slow API / DB calls <span class="meta">(IG · 2026-05-29 · reel DY257b6xGCE)</span></h4>
+
+<p>Short reel making a solid point with a Convex-specific recommendation. The general lesson is universal; the specific tool only matters if you're already on Convex.</p>
+
+<p><strong>The general lesson (true everywhere):</strong></p>
+<ul>
+  <li>Every API call or expensive DB query costs something — money (paid APIs like OpenAI/Stripe), time (slow query), or both.</li>
+  <li>If 1000 users a day make the same call, that's 1000× the cost when 1 cached result would do.</li>
+  <li>Pattern: <strong>first call hits the source, every subsequent call hits the cache.</strong> Optional TTL invalidates stale data.</li>
+  <li>Especially valuable for: AI embeddings/completions (expensive), third-party API calls (rate-limited), aggregations over large tables (slow), anything that doesn't change second-by-second.</li>
+</ul>
+
+<p><strong>The reel's specific recommendation — Convex Action Cache:</strong></p>
+<ul>
+  <li><strong>Package:</strong> <code>@convex-dev/action-cache</code> — official Convex component.</li>
+  <li><strong>Install:</strong> <code>npm install @convex-dev/action-cache</code> (requires existing Convex project).</li>
+  <li><strong>How it works:</strong> wraps any Convex action; caches result keyed by action name + arguments. Optional TTL. Daily cron cleans up expired entries.</li>
+  <li><strong>Source:</strong> <a href="https://github.com/get-convex/action-cache">github.com/get-convex/action-cache</a> · <a href="https://www.convex.dev/components/action-cache">convex.dev/components/action-cache</a></li>
+  <li><strong>When relevant:</strong> only if the project is built on Convex (a serverless backend platform). Asi's typical Next.js + Supabase projects don't use Convex — see equivalents below.</li>
+</ul>
+
+<p><strong>For Asi's Next.js + Supabase stack — the equivalents:</strong></p>
+<table>
+<tr><th>What to cache</th><th>Tool</th><th>How</th></tr>
+<tr><td>Server Component results</td><td>Next.js built-in</td><td><code>fetch(..., { next: { revalidate: 60 } })</code> — full data cache with revalidation, no extra dependency</td></tr>
+<tr><td>API response data</td><td>Upstash Redis</td><td>Free tier 10K cmd/day. <code>@upstash/redis</code>. Drop-in for any Node code.</td></tr>
+<tr><td>React Query / SWR client-side</td><td>TanStack Query</td><td>Caches across components, deduplicates concurrent requests automatically.</td></tr>
+<tr><td>LLM responses (OpenAI/Anthropic)</td><td>LangChain cache OR custom Redis</td><td>Hash the prompt → look up; identical prompt = cached response. Saves $$$ on repeat queries.</td></tr>
+<tr><td>Database query results</td><td>Supabase / Postgres materialized views</td><td>For expensive aggregations. Refresh on a schedule.</td></tr>
+</table>
+
+<p><strong>Audit prompt:</strong></p>
+<div class="copy-block">
+<pre><code>Audit this project for caching opportunities:
+
+1. Find every external API call (fetch(), axios, OpenAI SDK, Stripe SDK,
+   third-party clients). For each:
+   - How often is it called?
+   - Does the response change frequently or rarely?
+   - Is it idempotent (same input → same output)?
+   - Is it paid? Estimate cost-per-call.
+
+2. Find every database query that takes > 100ms (look for aggregations,
+   JOINs across multiple tables, COUNT(*) on large tables, GROUP BY).
+
+3. Find every LLM call (Claude, GPT, embedding endpoints). These are almost
+   always cache candidates.
+
+4. For each match: rate cache value as HIGH / MED / LOW based on:
+   - call frequency × cost per call × stability of result
+   - HIGH = "must cache", MED = "should cache", LOW = "leave it"
+
+5. Output: file:line | what's called | call frequency estimate | cost per call |
+   staleness tolerance | cache value | recommended TTL | recommended tool
+
+Don't add caching yet. Just produce the audit ranked by cache value.</code></pre>
+</div>
+
 <h4>Layer 11 — Load balancing &amp; scaling failure modes <span class="meta">(IG · 2026-05-29 · reel DY5KQSsRpfz · "13-layer prod stack" series)</span></h4>
 
 <p>From the same series as Layer 8 / RLS (see Step 2b in Section 2). The reel framed it as: <em>"This is the one that breaks at the worst possible moment."</em> Three specific failure modes to design against, not just one general "scale up":</p>
@@ -972,6 +1030,12 @@ print(result)</code></pre>
 
 <h4>Error states — what AI tools build wrong by default <span class="meta">(IG · 2026-05-25 · reel DYr7cKLIQo6 · "Building with good UX" Part 5)</span></h4>
 <p>3 things every error message must do: <strong>what happened, why, what's next</strong>. Don't dump stack traces (security risk too). Don't say "Something went wrong" (vague, breaks trust at payment time). Don't fail silently (worst — AI tool default). Full anti-pattern table + 8-line implementation checklist + ready prompt to audit existing code. See <a href="#ux-patterns">Section 10 — UX patterns</a>.</p>
+
+<h4>Caching for slow API / DB calls <span class="meta">(IG · 2026-05-29 · reel DY257b6xGCE)</span></h4>
+<p>General lesson: cache expensive/repeat calls. Reel recommends Convex Action Cache (only relevant if on Convex). For Asi's Next.js + Supabase stack: built-in <code>fetch()</code> revalidation, Upstash Redis, TanStack Query, materialized views. Full mapping + audit prompt at <a href="#reels">Section 4.2 — Performance &amp; scaling</a>.</p>
+
+<h4>Empty states — first impression UX <span class="meta">(IG · 2026-05-29 · reel DY5PkUjyhMv · "Building with good UX" Part 8)</span></h4>
+<p>3 kinds of empty (first-time / no-results / achievement) — each needs different treatment. Good empty state tells WHY empty + WHAT to do next + doesn't feel broken. Includes per-page checklist + audit prompt. See <a href="#ux-empty-states">Section 10.3 — Empty states</a>.</p>
 
 <h4>Forms — 6 rules to reduce friction <span class="meta">(IG · 2026-05-29 · reel DYyzrdpIixM · "Building with good UX" Part 6)</span></h4>
 <p>Disabled-with-reason buttons, inline validation onBlur, character counts, pre-fill, live password requirements, forgiving formatting. 6 rules + grep patterns + 12-line per-form checklist + audit prompt. See <a href="#ux-forms">Section 10.2 — Forms</a>.</p>
@@ -1493,20 +1557,108 @@ For each form file, output:
 Don't refactor anything yet. Just the audit table.</code></pre>
 </div>
 
-<h3>10.3 Coming in future reels (placeholders)</h3>
+<h3 id="ux-empty-states">10.3 Empty states (Part 8 — reel DY5PkUjyhMv)</h3>
 
-<p>Same series promises more parts on errors / placement / loading. Asi will send when found.</p>
+<p>The reel framed it well: <em>"As designers and developers we like to think about new features. But the empty state is often what your user sees first. Let's make a good impression."</em></p>
+
+<h4>The 3 kinds of empty state — each needs its own treatment</h4>
+
+<h5>Kind 1: First-time empty (onboarding)</h5>
+<p>User just signed up, lands on dashboard, sees nothing. <strong>The default failure</strong> — leaves them stuck. Fixes:</p>
+<ul>
+  <li><strong>Primary CTA inline</strong> — "Create your first project" right where the project list would be. Not just a small button in the corner.</li>
+  <li><strong>Optional step-by-step</strong> — gamified onboarding: "Step 1 of 3 — name your project". Right for complex apps; overkill for simple ones.</li>
+  <li><strong>Explain the section</strong> — even a 1-line "This is where your projects will live" reduces confusion.</li>
+</ul>
+
+<h5>Kind 2: No-results empty (search / filter)</h5>
+<p>User searched, got nothing. <strong>Don't just say "No results."</strong></p>
+<ul>
+  <li><strong>Repeat what they searched for</strong> — "No results for <em>'purple shoes'</em>" — confirms the system understood.</li>
+  <li><strong>Give them a way forward</strong> — link to clear filters, suggest alternative search, show popular categories. Anything that keeps the user moving.</li>
+  <li><strong>Don't blame them</strong> — "Did you mean…?" works; "Your search returned no matches" feels accusatory.</li>
+</ul>
+
+<h5>Kind 3: Achievement empty (cleared / completed)</h5>
+<p>User cleared their inbox to zero, finished all tasks, archived all notifications. <strong>This is a celebration, not an empty page.</strong></p>
+<ul>
+  <li><strong>Make it feel like an achievement</strong> — animation, celebratory background, "Inbox zero! Nicely done."</li>
+  <li><strong>Reward the behavior</strong> — users should look forward to reaching this state, not dread it as "broken."</li>
+  <li><strong>Examples that nail this</strong>: Superhuman's empty inbox, Things 3's completed task celebration, Linear's empty backlog.</li>
+</ul>
+
+<h4>The 3-rule definition of a good empty state</h4>
+<ol>
+  <li><strong>Tells the user <em>why</em></strong> it's empty (first-time / no results / achievement).</li>
+  <li><strong>Shows what to do next</strong> — even if the answer is "go take a break."</li>
+  <li><strong>Doesn't feel broken</strong> — visual treatment, copy, illustration that says <em>"this is intentional"</em>, not <em>"something didn't load."</em></li>
+</ol>
+
+<h4>Per-page empty-state checklist</h4>
+
+<div class="copy-block">
+<pre><code>For every list / table / grid / dashboard panel in the app:
+
+[ ] First-time empty case identified — what does it look like?
+[ ] Primary CTA in the empty state — clear action the user should take
+[ ] No-results case (if it can be searched/filtered) — handled separately from
+    first-time empty (different copy)
+[ ] No-results case shows what was searched (echo the query)
+[ ] No-results case offers a way forward (clear filters, alternative suggestions)
+[ ] Achievement case identified (if applicable) — clearing inbox, completing
+    onboarding, archiving everything
+[ ] Achievement case feels positive (not empty-page-of-doom)
+[ ] Empty state visually distinct from loading state — user knows it's done
+    loading, not still fetching
+[ ] Empty state visually distinct from error state — user knows it's a valid
+    "no data" not a "something broke"
+[ ] All 3 messages are present where applicable: WHY empty, WHAT to do next,
+    intentional visual signal</code></pre>
+</div>
+
+<h4>Empty-state audit prompt</h4>
+
+<div class="copy-block">
+<pre><code>Audit every empty state in this project:
+
+1. Find every component that renders a list, table, grid, or empty container.
+   (Look for `.map()`, `.length === 0`, `if (!data)`, `<EmptyState />`, etc.)
+
+2. For each, classify the empty case:
+   - first-time empty (user has no data yet)
+   - no-results empty (user filtered/searched, came back empty)
+   - achievement empty (user emptied the list intentionally — inbox zero,
+     all-done, etc.)
+   - error empty (data fetch failed — separate from "no data")
+
+3. For each first-time empty: does it have a primary CTA? file:line.
+4. For each no-results: does it echo the search query? Does it offer a way
+   forward? file:line.
+5. For each achievement: does it feel positive, or just blank?
+6. For each: is it visually distinct from the loading state and error state?
+
+Output: a table of {file:line, component_name, empty_case_type, has_cta,
+has_echo, has_way_forward, achievement_treatment, severity, fix}.
+
+Don't fix anything yet. Just the audit.</code></pre>
+</div>
+
+<h3>10.4 Coming in future reels (placeholders)</h3>
+
+<p>Same series promises more parts. Asi will send when found.</p>
 
 <table>
 <tr><th>Part</th><th>Topic</th><th>Status</th></tr>
 <tr><td>1–3</td><td>Loading states</td><td><span class="pill warn">missed — not sent yet</span></td></tr>
-<tr><td>4</td><td>(unclear — possibly empty states or success states)</td><td><span class="pill warn">missed</span></td></tr>
+<tr><td>4</td><td>(unclear — possibly success states)</td><td><span class="pill warn">missed</span></td></tr>
 <tr><td>5</td><td><strong>Error states</strong></td><td><span class="pill ok">documented (10.1)</span></td></tr>
 <tr><td>6</td><td><strong>Forms</strong></td><td><span class="pill ok">documented (10.2)</span></td></tr>
-<tr><td>7</td><td>Error placement (teased in reel 6 — "where errors are placed matters")</td><td><span class="pill info">teased, watch for it</span></td></tr>
+<tr><td>7</td><td>Error placement (teased in reel 6)</td><td><span class="pill warn">missed</span></td></tr>
+<tr><td>8</td><td><strong>Empty states</strong></td><td><span class="pill ok">documented (10.3)</span></td></tr>
+<tr><td>9</td><td>Partial states (teased in reel 8 — "next we talk about partial states")</td><td><span class="pill info">teased, watch for it</span></td></tr>
 </table>
 
-<p>If Asi finds Parts 1–4 (and Part 7 when it drops) on the same creator's profile, send them and I'll add each here. The series is worth completing as a delivery checklist.</p>
+<p>If Asi finds Parts 1–4, 7 (and Part 9 when it drops) on the same creator's profile, send them and I'll add each here.</p>
 </div>
 </section>
 
@@ -2012,6 +2164,7 @@ Don't make any DB changes. Just produce the audit report.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-29 (latest+5)</td><td>Added Section 10.3 — Empty states (Part 8 of "Building with good UX", reel DY5PkUjyhMv): 3 kinds of empty (first-time / no-results / achievement), per-page checklist, audit prompt. Also added to Section 4.2: Caching for slow API/DB calls (reel DY257b6xGCE) — general lesson + Convex Action Cache (specific) + Next.js/Supabase equivalents table + caching audit prompt.</td></tr>
 <tr><td>2026-05-29 (latest+4)</td><td><strong>Added Section 13: Multi-tenancy architecture for SaaS / multi-org projects.</strong> From IG reel DY4jQHeR4Gb. Verified the 3 reel rules (tenant_id everywhere, RLS at DB level, indexes for actual access patterns) and extended with 6 critical additions the reel missed (tenant context routing patterns, FORCE ROW LEVEL SECURITY trap, PgBouncer/RLS gotcha, composite indexes, connection-pool partitioning, backup/restore boundaries). Includes 3 models comparison (single-DB shared-schema / schema-per-tenant / DB-per-tenant), pre-build 13-line checklist, retrofit 6-phase plan for live apps, and a Claude audit prompt. Per Asi's request: "clear instructions for big projects."</td></tr>
 <tr><td>2026-05-29 (latest+3)</td><td>Added to Section 3.3: OpenOSINT (14-tool autonomous OSINT agent via MCP server). Verified real per Asi's "check this" question. Includes 4 use cases for client work (pre-engagement recon, asset-exposure deliverable, personal monitoring) and prominent legal warnings (Israeli computer law, GDPR, CFAA — authorized targets only). From IG reel DY15Vh_h4Ji.</td></tr>
 <tr><td>2026-05-29 (latest+2)</td><td><strong>UX overhaul:</strong> all 13 sections are now <em>collapsible</em> — click the section header to expand or collapse. By default everything is collapsed; the TOC is the entry point. Internal links auto-open the target section and flash it briefly. "Expand all" / "Collapse all" buttons in the footer. Plus added Section 10.2 — Forms (Part 6 of "Building with good UX" series, reel DYyzrdpIixM): 6 rules to reduce form friction, grep patterns, per-form checklist, audit prompt.</td></tr>
