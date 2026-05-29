@@ -673,6 +673,66 @@ python main.py https://example.com --he  # Hebrew output</code></pre>
   <li>LLM-based scraping is <strong>expensive at scale</strong> if you use a paid model. Default to local Ollama for high-volume work; pay per-call only when you need quality the local can't give.</li>
   <li>For legally sensitive scraping (anything behind login, anything paywalled, anything competitor-targeted): respect the target site's ToS and Israeli/EU law. The tool removes the technical barrier but not the legal one.</li>
 </ol>
+
+<h4>Browser Use <span class="pill ok">verified real — 93K+ GitHub stars</span></h4>
+<p>An open-source Python framework for AI-driven browser automation. From IG reel <code>DY4wy9xSiN8</code> (2026-05-29). The reel framed it as "while everyone was watching ChatGPT Agent and Computer Use, some random developer quietly shipped a free Python framework that does exactly the same thing" — verified, it's real and serious.</p>
+
+<p><strong>What it does:</strong></p>
+<ul>
+  <li>Plain-English task → AI agent opens a real browser, clicks buttons, fills forms, returns results.</li>
+  <li>LLM-agnostic: works with Claude, GPT, Gemini, or any local model.</li>
+  <li>Has its own <code>ChatBrowserUse()</code> model (their fine-tuned version) that's 3–5× faster than generic models on browser tasks.</li>
+  <li><strong>Trusted by Fortune 500 companies</strong> per their docs — not just a toy.</li>
+  <li><strong>MIT license</strong> — commercial use allowed.</li>
+</ul>
+
+<p><strong>Why this is real:</strong></p>
+<ul>
+  <li><strong>93,200+ GitHub stars</strong> as of May 2026 — one of the most-starred Python repos period.</li>
+  <li>Active development, regular commits.</li>
+  <li>Official site (<a href="https://browser-use.com/">browser-use.com</a>) with documentation, examples, hosted version.</li>
+  <li>#1 open-source browser automation platform by adoption.</li>
+</ul>
+
+<p><strong>Install + minimum example:</strong></p>
+<div class="copy-block">
+<pre><code>pip install browser-use
+
+# Then in Python:
+from browser_use import Agent
+from langchain_anthropic import ChatAnthropic
+
+agent = Agent(
+    task="Go to LinkedIn and find the latest 5 job postings for senior Next.js developer in Israel",
+    llm=ChatAnthropic(model="claude-3-5-sonnet"),
+)
+result = await agent.run()
+print(result)</code></pre>
+</div>
+
+<p><strong>Why relevant for Asi specifically:</strong></p>
+<ul>
+  <li><strong>Lead generation for client outreach</strong> — "find companies with X tech stack that don't have Y feature" → real client list, automatically.</li>
+  <li><strong>Competitor monitoring</strong> — for B2B clients (Bashier, etc.): "every Friday at 9am, check competitor's pricing page and report changes."</li>
+  <li><strong>Trading bot data backfill</strong> — when REST API is blocked, the bot can drive a real browser to fetch UI-visible data (orderbook, funding, candles). Pairs with Cloak Browser (Section 3.3) for stealth + Browser Use for the agent layer.</li>
+  <li><strong>Internal tooling for clients</strong> — many B2B clients do repetitive web tasks (data entry, portal checks). A 1-day setup with Browser Use can replace a part-time hire.</li>
+</ul>
+
+<p><strong>Repos &amp; docs:</strong></p>
+<ul>
+  <li>Main: <a href="https://github.com/browser-use/browser-use">github.com/browser-use/browser-use</a></li>
+  <li>Web UI (run the agent from a browser): <a href="https://github.com/browser-use/web-ui">github.com/browser-use/web-ui</a></li>
+  <li>Org: <a href="https://github.com/browser-use">github.com/browser-use</a> (more repos)</li>
+  <li>Docs: <a href="https://docs.browser-use.com/open-source/introduction">docs.browser-use.com</a></li>
+</ul>
+
+<p><strong>Before going to production for a client:</strong></p>
+<ol>
+  <li>Cost watch — LLM calls per browser step. Run a 100-step demo first to see actual $$ burn.</li>
+  <li>Rate-limit your own agent against target sites; you can get IP-banned fast at full speed.</li>
+  <li>Legal: same caveats as ScrapeGraphAI — ToS, Israeli/EU law, especially for anything competitor-related or that uses login.</li>
+  <li>Container the runtime (Docker / VM) — agents can drift, you don't want them touching your real filesystem or browser cookies.</li>
+</ol>
 </section>
 
 <section class="major" id="reels">
@@ -754,6 +814,9 @@ python main.py https://example.com --he  # Hebrew output</code></pre>
 
 <h4>ScrapeGraphAI <span class="meta">(IG · 2026-05-25 · reel DYrlQReEbxS)</span></h4>
 <p>LLM-based scraper (MIT, Python). "Every paid scraping company just got destroyed" framing — hype, but the project is real. Pairs with Cloak Browser for bot-detection bypass + structured extraction. See <a href="#tools-watching">Section 3.3 — Tools to evaluate</a> for full breakdown.</p>
+
+<h4>Browser Use <span class="meta">(IG · 2026-05-29 · reel DY4wy9xSiN8)</span></h4>
+<p><strong>Asi asked: "is this real?"</strong> Verified: yes. <a href="https://github.com/browser-use/browser-use">github.com/browser-use/browser-use</a>, <strong>93K+ stars</strong>, MIT, Fortune 500 trusted. AI agent that drives a real browser via plain-English tasks. Full evaluation + install + 4 use-cases for Asi (lead gen, competitor watch, trading data backfill, internal client tools) at <a href="#tools-watching">Section 3.3 — Tools to evaluate</a>.</p>
 
 <h4>"Anthropic Cybersecurity Skills" library <span class="meta">(IG · 2026-05-25 · reel DYsVdwjgJke)</span></h4>
 <p>754 cybersecurity workflows for AI agents, Apache 2.0, mapped to MITRE ATT&amp;CK + NIST CSF + others. <strong>Not actually by Anthropic — community project by mukul975.</strong> See <a href="#tools-watching">Section 3.3 — Tools to evaluate</a> for full breakdown.</p>
@@ -1495,6 +1558,7 @@ severity, fix recommendation}. Don't change code yet — just the audit.</code><
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-29 (latest+1)</td><td>Added to Section 3.3: Browser Use (Python AI browser automation, MIT, 93K+ GitHub stars). Verified real after Asi's "is this real?" question. From IG reel DY4wy9xSiN8. Includes install snippet + 4 Asi-specific use cases.</td></tr>
 <tr><td>2026-05-29 (latest)</td><td>Added Section 12: Payments architecture deep dive (Stripe — 4-version progression: naive → idempotency keys → immutable ledger → webhooks). Includes architecture diagram, 14-line pre-launch checklist, audit prompt for existing integrations. From IG reel DY1g56bk9_o. Also added to Section 4.2: "Layer 11 — Load balancing &amp; scaling failure modes" (DB connections, cold start stampede, external API rate limits) from reel DY5KQSsRpfz (same "13-layer prod stack" series as Layer 8/RLS).</td></tr>
 <tr><td>2026-05-29 (later)</td><td>Added to Section 3.1: Anthropic Security Guidance plugin — official 3-layer real-time security plugin for Claude Code (edit-time pattern match + post-turn model scan + commit-time deep scan). 157K installs. From IG reel DY2BIfqtIHD.</td></tr>
 <tr><td>2026-05-29</td><td>Added Section 11: Deployment environments (dev / staging / production). 3-environment setup via Vercel branch-based previews, full Vercel setup checklist, separation table for DB/Stripe/email/OAuth/analytics, retrofit migration prompt. From IG reel DYuVqaeRi8q.</td></tr>
