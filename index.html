@@ -3670,6 +3670,65 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 
 <p><strong>How this pairs with Section 8 (Deployment environments):</strong> staging is where you stress-test these. Run k6 against staging with 100 concurrent users <strong>before</strong> launch. Watch DB connection count, watch cold-start latency, watch external API error rates. Fix what breaks. Then ship.</p>
 
+<h4>Debouncing — the 5-second performance fix every search/filter needs <span class="meta">(IG · 2026-05-30 · reel DY79qxIvkku)</span></h4>
+
+<p>The reel framed it as "the 5-second fix for vibe-coded apps". The pattern AI tools default to: a search input that fires a DB query on <em>every keystroke</em>. User types "hello" → 5 DB queries. Type fast → API is hammered, results flicker, autocomplete is laggy.</p>
+
+<p><strong>The fix: debounce.</strong> Wait until the user stops typing for N milliseconds, then fire <em>one</em> query.</p>
+
+<h4>The minimum-viable debounce (React + TanStack Query)</h4>
+
+<div class="copy-block">
+<pre><code>import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+
+function useDebouncedValue(value, delay = 300) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() =&gt; {
+    const t = setTimeout(() =&gt; setDebounced(value), delay);
+    return () =&gt; clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
+function SearchBox() {
+  const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query, 300);  // wait 300ms after stop
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["search", debouncedQuery],
+    queryFn: () =&gt; fetch(`/api/search?q=${debouncedQuery}`).then(r =&gt; r.json()),
+    enabled: debouncedQuery.length &gt;= 2,  // don&rsquo;t query on 0-1 chars
+  });
+
+  return (
+    &lt;&gt;
+      &lt;input value={query} onChange={e =&gt; setQuery(e.target.value)} /&gt;
+      {isLoading ? &lt;Spinner /&gt; : &lt;Results data={data} /&gt;}
+    &lt;/&gt;
+  );
+}</code></pre>
+</div>
+
+<h4>The 3 timing values you actually need to know</h4>
+
+<table>
+<tr><th>Delay</th><th>Use case</th><th>Why</th></tr>
+<tr><td><strong>150–200 ms</strong></td><td>Typeahead autocomplete (Algolia-style instant search)</td><td>Fast enough to feel real-time. Below 150ms users will trigger ~3 fetches per word.</td></tr>
+<tr><td><strong>300 ms</strong> ⭐</td><td>Default for search boxes</td><td>Sweet spot. Average user pauses ~400ms between words; 300ms catches the pause.</td></tr>
+<tr><td><strong>500–800 ms</strong></td><td>Heavy / expensive query (server-side full-text search, LLM-backed)</td><td>Give the user time to finish thinking. Show "type more to search…" hint while waiting.</td></tr>
+</table>
+
+<h4>Related patterns</h4>
+
+<ul>
+  <li><strong>Throttle</strong> (vs debounce) — fires at most once per N ms during a stream of events. Use for: scroll handlers, resize, mouse-move. <em>Not</em> for search input (use debounce).</li>
+  <li><strong>Cancel in-flight fetches</strong> — when a new debounced query starts, abort the previous request. TanStack Query handles this automatically; for raw <code>fetch</code> use <code>AbortController</code>.</li>
+  <li><strong>Show loading state during typing</strong> — even while debouncing, show a small spinner so the user knows the system is responsive (Section 9.4 inline spinner pattern).</li>
+</ul>
+
+<p><strong>Libraries (if you don&rsquo;t want to write your own):</strong> <code>use-debounce</code> on npm (small, just hooks), <code>lodash.debounce</code> (classic but heavy if you don&rsquo;t already have lodash), or write the 8-line hook above and skip the dependency.</p>
+
 <h3>14.3 Scraping &amp; automation</h3>
 
 <h4>Cloak Browser <span class="meta">(IG · 2026-05-23 · reel DYnWDihzQqF)</span></h4>
@@ -3769,6 +3828,9 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 
 <h4>Cache stampede / thundering herd <span class="meta">(IG · 2026-05-30 · reel DYANfXqCYO0)</span></h4>
 <p>4 strategies when a popular cache expires and 10K requests stampede the DB: request coalescing (start here), cache locking, probabilistic early refresh (XFetch pattern), background refresh worker. Full table + when-to-use-each + XFetch pseudo-code at <a href="#reels">Section 14.2 — Performance &amp; scaling</a> (right below caching).</p>
+
+<h4>Debouncing for search/filter inputs <span class="meta">(IG · 2026-05-30 · reel DY79qxIvkku)</span></h4>
+<p>AI default: search input fires a DB query on every keystroke. Fix: debounce, wait 300ms after last keystroke before firing. Includes 8-line React hook (<code>useDebouncedValue</code>) + TanStack Query integration + the 3 timing values that matter (150ms / 300ms / 500-800ms by use case). Added inline to <a href="#reels">Section 14.2 — Performance &amp; scaling</a> (under Layer 11).</p>
 
 <h4>Empty states — first impression UX <span class="meta">(IG · 2026-05-29 · reel DY5PkUjyhMv · "Building with good UX" Part 8)</span></h4>
 <p>3 kinds of empty (first-time / no-results / achievement) — each needs different treatment. Good empty state tells WHY empty + WHAT to do next + doesn't feel broken. Includes per-page checklist + audit prompt. See <a href="#ux-empty-states">Section 9.3 — Empty states</a>.</p>
@@ -4014,6 +4076,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-30 (debouncing)</td><td>Added debouncing subsection to 14.2 from reel DY79qxIvkku — fix for AI-default "DB query per keystroke" pattern. 8-line React hook + TanStack Query integration + 3 timing values by use case (150/300/500-800ms). Also acknowledged Layer 12 reel (DY7iptdRsB0) as re-share of Sentry coverage in 8.6/8.9.</td></tr>
 <tr><td>2026-05-30 (UX Part 9)</td><td>Added Section 9.5 — Partial states &amp; graceful degradation (Part 9 of UX series, reel DY-IhhSBV9b). Each screen section loads/fails independently. Per-section <code>Suspense</code> + <code>ErrorBoundary</code> pattern. Includes Next.js + React 19 implementation snippet + TanStack Query alternative + grep patterns for anti-patterns + decision rule. UX series now 8/9: Parts 1, 2, 3, 5, 6, 7, 8, 9 documented — only Part 4 missing.</td></tr>
 <tr><td>2026-05-30 (CI/CD ladder)</td><td>Added Section 8.9 — CI/CD maturity ladder (5 rungs from "solo no users" → "Sentry + smoke tests" → "real staging" → "Infrastructure as Code with Terraform" → "canary + feature flags with GrowthBook/LaunchDarkly"). From IG reel DYh_2F6j2Jb. Includes Asi-specific placement guidance (current bots = rung 0-1, client projects should be rung 1-2 minimum, big B2B clients = rung 3+).</td></tr>
 <tr><td>2026-05-30 (UX Part 7 + Vercel graduation + file-storage extras)</td><td>Four reels (2 new + 2 re-shares acknowledged): <strong>9.1.5 Error placement</strong> (Part 7 of UX series — reel DY0IImqxNQ0) — toast vs modal vs inline + 5 common AI mistakes + audit prompt. <strong>8.8 When to graduate from Vercel</strong> (reel DYzc-WUAOlA) — Vercel limits, Railway/Render/Fly options, split-stack pattern with ASCII diagram, 6-criteria decision tree. <strong>Section 15.3 inline addition</strong> (reel DYPp-arDNmJ) — thread starvation framing + S3 completion event pattern with Lambda example. <strong>2 re-shares acknowledged</strong>: reels DYr7cKLIQo6 (Error states) and DYcbCoiIKK1 (Loading patterns). UX series now has Parts 1, 2, 3, 5, 6, 7, 8 documented — only Part 4 missing.</td></tr>
