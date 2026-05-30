@@ -2349,6 +2349,18 @@ Don't refactor anything yet. Just the audit table.</code></pre>
   <li><strong>Doesn't feel broken</strong> — visual treatment, copy, illustration that says <em>"this is intentional"</em>, not <em>"something didn't load."</em></li>
 </ol>
 
+<h4>5 extra rules (from a second reel on empty states, DXMgbFOsjFu, 2026-05-30)</h4>
+
+<p>A second reel covered similar ground. The non-overlapping additions:</p>
+
+<ol>
+  <li><strong>A tiny illustration changes everything.</strong> A blank screen tells users nothing is wrong — but it also tells them nothing is happening. One small contextual illustration (not stock art) makes the empty state feel intentional.</li>
+  <li><strong>Sound human, not like a log file.</strong> Empty state copy commonly defaults to "No items found" or "Empty list." Rewrite as if you&rsquo;re explaining it to a friend over coffee.</li>
+  <li><strong>Primary action, not "refresh".</strong> A "refresh" button is a confession that you don&rsquo;t know what the user should do next. Replace with the actual next step (e.g. "Create your first project", "Invite a teammate", "Connect your bank").</li>
+  <li><strong>4 kinds, not 3.</strong> The first reel split into first-time / no-results / achievement. The second reel adds <em>error-state vs filtered-out</em> as separate cases (filtered-out: user applied filters that match nothing → suggest clearing filters; error: data fetch failed → retry CTA). Design each one separately.</li>
+  <li><strong>The empty state is your best onboarding moment.</strong> First-time empty is the ONE moment when 100% of users are on the screen and looking. Use it to teach what the feature does <em>before</em> they have any data. Don&rsquo;t waste the moment.</li>
+</ol>
+
 <h4>Per-page empty-state checklist</h4>
 
 <div class="copy-block">
@@ -3163,6 +3175,85 @@ For each finding give file:line and a 1-line fix. Don't write code yet.</code></
 Don't add caching yet. Just produce the audit ranked by cache value.</code></pre>
 </div>
 
+<h4>Cache stampede / thundering herd — when expiration goes wrong <span class="meta">(IG · 2026-05-30 · reel DYANfXqCYO0)</span></h4>
+
+<p><strong>The problem:</strong> a popular cache entry expires. The next 10,000 requests all see "miss" simultaneously, all hit the database to rebuild it, and the DB dies under the spike. "Cache stampede" or "thundering herd."</p>
+
+<p>This is a real failure mode the moment you have any caching layer with non-trivial traffic. Most engineers know only one fix; here are the four, in order of when to reach for each:</p>
+
+<table>
+<tr><th>Strategy</th><th>How it works</th><th>When to use</th><th>Tradeoff</th></tr>
+<tr>
+  <td><strong>1. Request coalescing</strong> <span class="pill ok">start here</span></td>
+  <td>Multiple in-flight duplicate requests are folded into ONE upstream call; everyone gets the same result. CloudFlare CDN does this automatically.</td>
+  <td>Default starting point. Easy to implement at CDN layer (Cloudflare) or app layer (most caching libraries).</td>
+  <td>Almost none. Requires the cache layer to support it. Most do.</td>
+</tr>
+<tr>
+  <td><strong>2. Cache locking</strong></td>
+  <td>First request acquires a lock, rebuilds the cache, others wait in line.</td>
+  <td>You already have Redis. Workload is mostly-reads, can tolerate small wait.</td>
+  <td>If rebuild is slow or fails, thousands of waiters time out. Lock release on failure is tricky.</td>
+</tr>
+<tr>
+  <td><strong>3. Probabilistic early refresh</strong></td>
+  <td>As cache age approaches TTL, each request has a small but growing chance of triggering background refresh. At min 50 of 60-min TTL, 1% refresh. At min 59, 20%. Refresh spreads naturally.</td>
+  <td>Unpredictable traffic spikes. You don&rsquo;t know what's hot ahead of time. Backend can handle moderate increased load.</td>
+  <td>More complex implementation. Requires randomized check on every read.</td>
+</tr>
+<tr>
+  <td><strong>4. Background refresh worker</strong></td>
+  <td>Dedicated worker proactively recomputes hot keys before they expire. Cache never expires from the user&rsquo;s perspective.</td>
+  <td>You KNOW what's hot ahead of time. Ticketmaster event pages, homepage of a high-traffic site, dashboards.</td>
+  <td>You need a list of "hot keys." Useless for random spikes. Adds infrastructure (worker process).</td>
+</tr>
+</table>
+
+<h4>The right combination</h4>
+
+<ul>
+  <li><strong>Always-on baseline:</strong> request coalescing (Cloudflare does it free; <code>@upstash/redis</code> has it; Redis has SETNX-based patterns). No TTL changes needed.</li>
+  <li><strong>Add for unpredictable spikes:</strong> probabilistic early refresh — implement in the cache wrapper function.</li>
+  <li><strong>Only when you know the hot keys:</strong> background refresh worker (e.g. a cron that pre-warms the homepage cache every 30 sec).</li>
+  <li><strong>Cache locking:</strong> only as fallback when nothing else fits. The other 3 are usually better.</li>
+</ul>
+
+<h4>Probabilistic early-refresh pseudo-code (the "XFetch" pattern)</h4>
+
+<div class="copy-block">
+<pre><code>async function getCached(key, fetchFn, ttl_seconds, beta = 1.0) {
+  const cached = await redis.get(key);
+  if (!cached) {
+    // True miss — fetch normally
+    const fresh = await fetchFn();
+    await redis.setex(key, ttl_seconds, JSON.stringify(fresh));
+    return fresh;
+  }
+  const { value, expires_at, compute_time_ms } = JSON.parse(cached);
+  const now = Date.now();
+  // XFetch: probabilistic early refresh as TTL approaches
+  const delta = (compute_time_ms / 1000) * beta * Math.log(Math.random());
+  if (now - delta * 1000 &gt;= expires_at) {
+    // Background refresh — don&rsquo;t block the user
+    void (async () =&gt; {
+      const fresh = await fetchFn();
+      await redis.setex(key, ttl_seconds, JSON.stringify({
+        value: fresh,
+        expires_at: Date.now() + ttl_seconds * 1000,
+        compute_time_ms: Date.now() - now,
+      }));
+    })();
+  }
+  return value;
+}</code></pre>
+</div>
+
+<p>The math: <code>delta</code> grows toward zero as TTL approaches. When <code>now - delta &gt;= expires_at</code> becomes true, the entry is "due" for refresh. The randomness means different requests will trigger at different moments, spreading the refresh load.</p>
+
+<div class="note">
+<strong>Relevance for Asi:</strong> the bots&rsquo; orderbook caches, the client dashboards that show "live" data — anywhere you cache something expensive AND have multiple concurrent users. Most apps below 100 concurrent users don't see this problem; above that it bites. Worth knowing the 4 patterns before you need them.
+</div>
+
 <h4>Layer 11 — Load balancing &amp; scaling failure modes <span class="meta">(IG · 2026-05-29 · reel DY5KQSsRpfz · "13-layer prod stack" series)</span></h4>
 
 <p>From the same series as Layer 8 / RLS (see Step 2b in Section 2). The reel framed it as: <em>"This is the one that breaks at the worst possible moment."</em> Three specific failure modes to design against, not just one general "scale up":</p>
@@ -3272,8 +3363,14 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 <h4>Caching for slow API / DB calls <span class="meta">(IG · 2026-05-29 · reel DY257b6xGCE)</span></h4>
 <p>General lesson: cache expensive/repeat calls. Reel recommends <strong>Convex Action Cache</strong> — solid component for any Convex project. Asi's <em>current</em> default stack is Next.js + Supabase, but Convex is a legitimate choice for new projects when it fits. For Supabase-stack equivalents: built-in <code>fetch()</code> revalidation, Upstash Redis, TanStack Query, materialized views. Full mapping + audit prompt at <a href="#reels">Section 14.2 — Performance &amp; scaling (old reel index location)</a>.</p>
 
+<h4>Cache stampede / thundering herd <span class="meta">(IG · 2026-05-30 · reel DYANfXqCYO0)</span></h4>
+<p>4 strategies when a popular cache expires and 10K requests stampede the DB: request coalescing (start here), cache locking, probabilistic early refresh (XFetch pattern), background refresh worker. Full table + when-to-use-each + XFetch pseudo-code at <a href="#reels">Section 14.2 — Performance &amp; scaling</a> (right below caching).</p>
+
 <h4>Empty states — first impression UX <span class="meta">(IG · 2026-05-29 · reel DY5PkUjyhMv · "Building with good UX" Part 8)</span></h4>
 <p>3 kinds of empty (first-time / no-results / achievement) — each needs different treatment. Good empty state tells WHY empty + WHAT to do next + doesn't feel broken. Includes per-page checklist + audit prompt. See <a href="#ux-empty-states">Section 9.3 — Empty states</a>.</p>
+
+<h4>Empty states — 5 extra rules <span class="meta">(IG · 2026-05-30 · reel DXMgbFOsjFu)</span></h4>
+<p>Second reel on empty states. 5 additions to <a href="#ux-empty-states">Section 9.3</a>: use a tiny illustration; sound human not corporate; primary action not "refresh"; split filtered-out from error from no-results (4 kinds not 3); the empty state is your best onboarding moment — teach the feature before they have data.</p>
 
 <h4>Forms — 6 rules to reduce friction <span class="meta">(IG · 2026-05-29 · reel DYyzrdpIixM · "Building with good UX" Part 6)</span></h4>
 <p>Disabled-with-reason buttons, inline validation onBlur, character counts, pre-fill, live password requirements, forgiving formatting. 6 rules + grep patterns + 12-line per-form checklist + audit prompt. See <a href="#ux-forms">Section 9.2 — Forms</a>.</p>
@@ -3471,6 +3568,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-30 (big batch +2)</td><td>Two more reels: <strong>Cache stampede / thundering herd</strong> (reel DYANfXqCYO0) — added to Section 14.2 right after the caching subsection: 4 strategies (request coalescing / cache locking / probabilistic early refresh with XFetch pseudo-code / background refresh worker) + when to use each. <strong>Empty states 5 extra rules</strong> (reel DXMgbFOsjFu) — appended to Section 9.3: tiny illustration, sound human not corporate, primary action not refresh, 4 kinds not 3 (separate filtered-out from error), empty state as best onboarding moment.</td></tr>
 <tr><td>2026-05-30 (big batch)</td><td>Six additions from 9 reels: <strong>Section 2.6</strong> — Leaked-secret incident response (rotate first, scrub second; BFG / git-filter-repo; gitleaks/trufflehog pre-commit hooks). <strong>Section 6.8</strong> — Generalizing multi-step writes (order placement) with sync-vs-async decision framework + queue tooling. <strong>Section 9.0</strong> — UI vs UX foundation (Part 1 of "Building with good UX" series). <strong>Section 9.4</strong> — Loading patterns (Part 3): skeleton vs spinner vs progress vs optimistic UI + decision tree + Next.js snippets. <strong>Section 10.3</strong> — added PocketBase + Dub.co. <strong>Section 16</strong> (new, in Part III architecture playbooks) — File storage architecture: pre-signed URLs, POST vs PUT, multipart, security checklist, audit prompt. Also added cross-reference table for the LinkedIn "Time Bombs" article: 3/5 already covered, 2/5 added inline notes (SQLite-on-Vercel trap, AI context rot mitigation).</td></tr>
 <tr><td>2026-05-29 (post-restructure +3)</td><td>Three additions: <strong>Section 2.5</strong> — "AI made this and ship today" 5-check list (consolidates reels DYDvMAFIHY7 + DYcV1pdoG6X: service-role key exposure, RLS off for debugging, login rate-limit, console.log of secrets, .env in git history; plus frontend/backend validation note). <strong>Section 4.4</strong> — IP / Trademark check before falling in love with a name (reel DYpK8fsTKUe): 4-step check, trademark databases (Israel/EU/US/WIPO), red flags. <strong>Section 8.7</strong> — Docker for non-Vercel workloads (reel DXYh9CHihnt): multi-stage builds, alpine/distroless, .dockerignore, minimal Dockerfile template for Python bots.</td></tr>
 <tr><td>2026-05-29 (post-restructure)</td><td>Added Section 8.6: "No DevOps" stack — Sentry (error tracking) + Upstash (Redis + rate-limit) + Railway (persistent compute). 1-hour setup checklist + audit prompt. From IG reel DY7OKr4xruV. Also noted that reel DXQiWMVDfXg (Giscard/LLM Guard/Rebuff) is a re-share of content already documented from 2026-05-17.</td></tr>
