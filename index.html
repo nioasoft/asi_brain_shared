@@ -410,7 +410,8 @@
         <li><a href="#ux-forms">9.2 Forms (Part 6)</a></li>
         <li><a href="#ux-empty-states">9.3 Empty states (Part 8)</a></li>
         <li><a href="#ux-loading">9.4 Loading patterns (Part 3)</a></li>
-        <li><a href="#ux-patterns">9.5 Coming in future reels (placeholders)</a></li>
+        <li><a href="#ux-partial-states">9.5 Partial states &amp; graceful degradation (Part 9)</a></li>
+        <li><a href="#ux-patterns">9.6 Coming in future reels (placeholders)</a></li>
       </ol>
     </li>
   </ol>
@@ -2778,7 +2779,119 @@ const [likes, addOptimisticLike] = useOptimistic(serverLikes, (state) =&gt; stat
 // On click: addOptimisticLike() first, then await server call</code></pre>
 </div>
 
-<h3>9.5 Coming in future reels (placeholders)</h3>
+<h3 id="ux-partial-states">9.5 Partial states &amp; graceful degradation (Part 9 — reel DY-IhhSBV9b)</h3>
+
+<p>The reel&rsquo;s framing nails it: <em>"When you order delivery from three different restaurants, do you expect all of them to show up at exactly the same time? And if one doesn&rsquo;t show up, do you throw all the food away? Of course not."</em></p>
+
+<p>Most non-trivial app screens are <strong>composed of independent data sources</strong>: profile from one API, feed from another, notifications from a third, ads from a fourth. Each loads and fails independently. AI tools default to either:</p>
+
+<ul>
+  <li><span class="pill danger">Bad #1</span> One big loading screen until <em>everything</em> is ready — the user waits behind the slowest fetch.</li>
+  <li><span class="pill danger">Bad #2</span> One big error page if <em>anything</em> fails — the user loses access to features that actually worked.</li>
+</ul>
+
+<h4>The principle: graceful degradation</h4>
+
+<blockquote><strong>Each section loads on its own, fails on its own, and the rest of the page is still usable.</strong></blockquote>
+
+<p>Examples done well:</p>
+<ul>
+  <li><strong>Instagram</strong> — stories ready, feed still loading, search ready — each independently. You can interact with stories while the feed finishes.</li>
+  <li><strong>Linear / Notion dashboards</strong> — sidebar always works; chart on the right loads / fails independently. Sidebar error doesn&rsquo;t break the chart, chart error doesn&rsquo;t break the sidebar.</li>
+  <li><strong>YouTube watch page</strong> — video loads first; comments lazy; recommendations independent. If comments are down, you can still watch.</li>
+</ul>
+
+<h4>How to actually implement it (Next.js + React 19)</h4>
+
+<div class="copy-block">
+<pre><code>// EVERY independent data source gets its own Suspense + ErrorBoundary
+// React 19 streaming makes this the default pattern.
+
+import { Suspense } from "react";
+import { ErrorBoundary } from "react-error-boundary";
+
+export default function Dashboard() {
+  return (
+    &lt;div className="dashboard"&gt;
+      &lt;Sidebar /&gt;                              {/* Server Component, no loading needed */}
+
+      &lt;ErrorBoundary fallback={&lt;ProfileErrorCard /&gt;}&gt;
+        &lt;Suspense fallback={&lt;ProfileSkeleton /&gt;}&gt;
+          &lt;ProfileCard /&gt;                      {/* Fetches user profile */}
+        &lt;/Suspense&gt;
+      &lt;/ErrorBoundary&gt;
+
+      &lt;ErrorBoundary fallback={&lt;ChartErrorCard /&gt;}&gt;
+        &lt;Suspense fallback={&lt;ChartSkeleton /&gt;}&gt;
+          &lt;RevenueChart /&gt;                     {/* Fetches chart data */}
+        &lt;/Suspense&gt;
+      &lt;/ErrorBoundary&gt;
+
+      &lt;ErrorBoundary fallback={&lt;FeedErrorCard /&gt;}&gt;
+        &lt;Suspense fallback={&lt;FeedSkeleton /&gt;}&gt;
+          &lt;RecentActivity /&gt;                   {/* Fetches activity feed */}
+        &lt;/Suspense&gt;
+      &lt;/ErrorBoundary&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+</div>
+
+<p><strong>Each component:</strong> has its own Suspense (loading) + its own ErrorBoundary (error). One slow fetch doesn&rsquo;t hold up the others. One failed fetch doesn&rsquo;t break the rest of the page.</p>
+
+<h4>For client-side fetches (TanStack Query / SWR)</h4>
+
+<div class="copy-block">
+<pre">// Same principle in client components. Each useQuery hook has its own state.
+
+function Dashboard() {
+  return (
+    &lt;div&gt;
+      &lt;ProfileSection /&gt;        {/* useQuery("profile") — own loading/error */}
+      &lt;ChartSection /&gt;          {/* useQuery("chart") — own loading/error */}
+      &lt;FeedSection /&gt;           {/* useQuery("feed") — own loading/error */}
+    &lt;/div&gt;
+  );
+}
+
+function ChartSection() {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["chart"],
+    queryFn: fetchChart,
+  });
+  if (isLoading) return &lt;ChartSkeleton /&gt;;
+  if (isError) return &lt;ChartErrorCard onRetry={...} /&gt;;   // ← retry per section, not whole page
+  return &lt;Chart data={data} /&gt;;
+}</pre>
+</div>
+
+<h4>Anti-patterns to grep for</h4>
+
+<div class="copy-block">
+<pre><code># Find pages with a single top-level loading state that blocks everything
+grep -rEn "if \(isLoading\) return &lt;Loading /&gt;" --include="*.tsx" .
+# For each match: is this the WHOLE page&rsquo;s loading, or a section&rsquo;s?
+# Whole-page = FAIL (one fetch blocks the whole UI)
+
+# Find single top-level error catches
+grep -rEn "if \(error\) return &lt;ErrorPage" --include="*.tsx" .
+# Same: whole-page = FAIL. Should be per-section.
+
+# Find pages without per-section Suspense / ErrorBoundary
+grep -rEn '&lt;Suspense' --include="*.tsx" -c . | sort -t: -k2 -n
+# Pages with 0 or 1 Suspense for multiple sections = FAIL.</code></pre>
+</div>
+
+<h4>The decision rule</h4>
+
+<p>For every screen, ask: <strong>"What&rsquo;s the cost of one slow/failed section blocking the others?"</strong></p>
+<ul>
+  <li><strong>High cost</strong> (dashboard, social feed, profile, e-commerce listing) → graceful degradation. Per-section Suspense + ErrorBoundary.</li>
+  <li><strong>Low cost</strong> (login form, checkout flow) → single state is fine. These are linear flows; partial-loading would be confusing.</li>
+  <li><strong>Default for new screens with 3+ data sources</strong> → graceful degradation. It&rsquo;s rarely the wrong call.</li>
+</ul>
+
+<h3>9.6 Coming in future reels (placeholders)</h3>
 
 <p>Same series promises more parts. Asi will send when found.</p>
 
@@ -2792,7 +2905,7 @@ const [likes, addOptimisticLike] = useOptimistic(serverLikes, (state) =&gt; stat
 <tr><td><strong>6</strong></td><td><strong>Forms</strong></td><td><span class="pill ok">documented (9.2)</span></td></tr>
 <tr><td><strong>7</strong></td><td><strong>Error placement (toast vs modal vs inline)</strong></td><td><span class="pill ok">documented (9.1.5)</span></td></tr>
 <tr><td><strong>8</strong></td><td><strong>Empty states</strong></td><td><span class="pill ok">documented (9.3)</span></td></tr>
-<tr><td>9</td><td>Partial states (teased in reel 8 — "next we talk about partial states")</td><td><span class="pill info">teased, watch for it</span></td></tr>
+<tr><td><strong>9</strong></td><td><strong>Partial states &amp; graceful degradation</strong></td><td><span class="pill ok">documented (9.5)</span></td></tr>
 <tr><td>10+</td><td>Inline spinners deep-dive (teased in reel 3 — "different kinds, psychology")</td><td><span class="pill info">teased, watch for it</span></td></tr>
 </table>
 
@@ -3622,6 +3735,9 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 <h4>Layer 5 — Staging (push-to-main = production) <span class="meta">(IG · 2026-05-30 · reel DYpc9DkghA8 · "13-layer prod stack" series)</span></h4>
 <p>Same content as already documented in <a href="#deploy-environments">Section 8.1 — The 3-environment setup</a> (from earlier reel DYuVqaeRi8q). Push-to-main = production is the trap; staging branches + preview deploys are the fix. Marked as <strong>re-share</strong>; nothing new added.</p>
 
+<h4>Layer 12 — Error tracking and logs <span class="meta">(IG · 2026-05-30 · reel DY7iptdRsB0 · "13-layer prod stack" series)</span></h4>
+<p>Sentry catches every unhandled exception. Users hit white screen → leave silently → you think everything is fine because no one complains. <strong>Already documented</strong> in <a href="#deploy-environments">Section 8.6</a> ("No DevOps" stack: Sentry + Upstash + Railway) and as Rung 1 of <a href="#deploy-environments">Section 8.9</a> (CI/CD maturity ladder). The framing line from this reel worth saving: <em>"The difference between a demo and a production app isn&rsquo;t the features. It&rsquo;s observability."</em></p>
+
 <h4>When to graduate from Vercel (and where to) <span class="meta">(IG · 2026-05-30 · reel DYzc-WUAOlA)</span></h4>
 <p>10-second Hobby timeout = signal you&rsquo;ve outgrown Vercel for this workload. Options: Railway (best successor for long-running), Render (+ managed Postgres), Fly.io (global edge). Split-stack pattern: keep frontend on Vercel, move backend/workers to Railway. ASCII diagram + 6-criteria decision tree at <a href="#deploy-environments">Section 8.8</a>.</p>
 
@@ -3656,6 +3772,9 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 
 <h4>Empty states — first impression UX <span class="meta">(IG · 2026-05-29 · reel DY5PkUjyhMv · "Building with good UX" Part 8)</span></h4>
 <p>3 kinds of empty (first-time / no-results / achievement) — each needs different treatment. Good empty state tells WHY empty + WHAT to do next + doesn't feel broken. Includes per-page checklist + audit prompt. See <a href="#ux-empty-states">Section 9.3 — Empty states</a>.</p>
+
+<h4>Partial states &amp; graceful degradation <span class="meta">(IG · 2026-05-30 · reel DY-IhhSBV9b · "Building with good UX" Part 9)</span></h4>
+<p>Each section of a screen loads/fails on its own. Don&rsquo;t block the whole page on one slow fetch; don&rsquo;t error out the whole page on one failed fetch. Per-section <code>Suspense</code> + <code>ErrorBoundary</code>. React 19 / TanStack Query implementation snippets + grep patterns for anti-patterns + decision rule (3+ data sources → graceful by default) at <a href="#ux-partial-states">Section 9.5</a>.</p>
 
 <h4>Empty states — 5 extra rules <span class="meta">(IG · 2026-05-30 · reel DXMgbFOsjFu)</span></h4>
 <p>Second reel on empty states. 5 additions to <a href="#ux-empty-states">Section 9.3</a>: use a tiny illustration; sound human not corporate; primary action not "refresh"; split filtered-out from error from no-results (4 kinds not 3); the empty state is your best onboarding moment — teach the feature before they have data.</p>
@@ -3895,6 +4014,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-30 (UX Part 9)</td><td>Added Section 9.5 — Partial states &amp; graceful degradation (Part 9 of UX series, reel DY-IhhSBV9b). Each screen section loads/fails independently. Per-section <code>Suspense</code> + <code>ErrorBoundary</code> pattern. Includes Next.js + React 19 implementation snippet + TanStack Query alternative + grep patterns for anti-patterns + decision rule. UX series now 8/9: Parts 1, 2, 3, 5, 6, 7, 8, 9 documented — only Part 4 missing.</td></tr>
 <tr><td>2026-05-30 (CI/CD ladder)</td><td>Added Section 8.9 — CI/CD maturity ladder (5 rungs from "solo no users" → "Sentry + smoke tests" → "real staging" → "Infrastructure as Code with Terraform" → "canary + feature flags with GrowthBook/LaunchDarkly"). From IG reel DYh_2F6j2Jb. Includes Asi-specific placement guidance (current bots = rung 0-1, client projects should be rung 1-2 minimum, big B2B clients = rung 3+).</td></tr>
 <tr><td>2026-05-30 (UX Part 7 + Vercel graduation + file-storage extras)</td><td>Four reels (2 new + 2 re-shares acknowledged): <strong>9.1.5 Error placement</strong> (Part 7 of UX series — reel DY0IImqxNQ0) — toast vs modal vs inline + 5 common AI mistakes + audit prompt. <strong>8.8 When to graduate from Vercel</strong> (reel DYzc-WUAOlA) — Vercel limits, Railway/Render/Fly options, split-stack pattern with ASCII diagram, 6-criteria decision tree. <strong>Section 15.3 inline addition</strong> (reel DYPp-arDNmJ) — thread starvation framing + S3 completion event pattern with Lambda example. <strong>2 re-shares acknowledged</strong>: reels DYr7cKLIQo6 (Error states) and DYcbCoiIKK1 (Loading patterns). UX series now has Parts 1, 2, 3, 5, 6, 7, 8 documented — only Part 4 missing.</td></tr>
 <tr><td>2026-05-30 (UX Part 2)</td><td>Added Section 9.0.5 — The 4 states every screen must have (Loading / Success / Error / Empty), from "Building with good UX" Part 2 (reel DYXxwf-BZpp). Includes brief loading-indicator history (1984 watch → 2013 skeleton screens) + per-screen pre-deploy check. Completes another gap in the UX series — now have Parts 1, 2, 3, 5, 6, 8 documented; still missing Parts 4 and 7.</td></tr>
