@@ -402,6 +402,7 @@
     <li><a href="#ux-patterns">UX patterns that AI tools get wrong</a>
       <ol>
         <li><a href="#ux-foundation">9.0 UI vs UX — the foundation (Part 1)</a></li>
+        <li><a href="#ux-four-states">9.0.5 The 4 states every screen must have (Part 2)</a></li>
         <li><a href="#ux-patterns">9.1 Error states (Part 5)</a></li>
         <li><a href="#ux-forms">9.2 Forms (Part 6)</a></li>
         <li><a href="#ux-empty-states">9.3 Empty states (Part 8)</a></li>
@@ -2169,6 +2170,54 @@ Output: action_name | predictability | feedback | recoverability | trust | frict
 | overall_pass</code></pre>
 </div>
 
+<h3 id="ux-four-states">9.0.5 The 4 states every screen must have (Part 2 — reel DYXxwf-BZpp)</h3>
+
+<p>From the same series&rsquo; Part 2. The single most important framing for AI-built UIs: <strong>every screen has 4 distinct states, and AI tools only design one of them by default.</strong></p>
+
+<table>
+<tr><th>State</th><th>What it shows</th><th>Where AI fails</th><th>Where covered in this doc</th></tr>
+<tr><td><strong>Loading</strong></td><td>Data is on its way (skeleton / spinner / progress bar)</td><td>Often missing entirely → user sees a blank screen and assumes broken</td><td><a href="#ux-loading">9.4 Loading patterns</a></td></tr>
+<tr><td><strong>Success</strong></td><td>Data loaded, user sees the UI as designed</td><td>The ONE state AI tools build well (the "happy path")</td><td>(every section assumes this is the default)</td></tr>
+<tr><td><strong>Error</strong></td><td>Something went wrong — backend, network, validation</td><td>Often missing or just dumps stack traces / vague "Something went wrong"</td><td><a href="#ux-patterns">9.1 Error states</a></td></tr>
+<tr><td><strong>Empty</strong></td><td>Loaded successfully, but there&rsquo;s no data to show</td><td>Often missing entirely → user sees a blank container, no CTA, gets lost</td><td><a href="#ux-empty-states">9.3 Empty states</a></td></tr>
+</table>
+
+<h4>Brief history of loading indicators (mostly cultural context)</h4>
+
+<ul>
+  <li><strong>1984</strong> — Mac: tiny wristwatch cursor. No animation.</li>
+  <li><strong>1985</strong> — Windows: hourglass. No animation. Lasted ~20 years.</li>
+  <li><strong>Late 80s</strong> — progress bars first appear. Research: <strong>86% of people prefer them even when they&rsquo;re inaccurate.</strong> (The bar is a comfort signal more than an info signal.)</li>
+  <li><strong>2001</strong> — Mac OS X: spinning rainbow wheel ("beach ball of death"). Animated but tells you nothing — has it been 5 seconds or 2 minutes? Still technically exists today.</li>
+  <li><strong>2013</strong> — skeleton screens conceived. Facebook adopts early. Work because your brain processes the <em>layout</em> while waiting for data.</li>
+  <li><strong>Now</strong> — skeleton screens for whole pages; spinners for buttons / small refreshes; optimistic UI for high-confidence ops; progress bars only when duration is known.</li>
+</ul>
+
+<h4>The principle that matters</h4>
+
+<blockquote>"Loaders should feel intuitive — most of the time when they&rsquo;re there, you don&rsquo;t even notice them. But when they&rsquo;re missing, users notice and assume something is broken. When done well, people will wait longer without realizing it."</blockquote>
+
+<p><strong>This is why the 4 states matter:</strong> if you only build "Success", every other situation becomes "something is broken" from the user&rsquo;s perspective. They blame you, even when the data was just slow or empty.</p>
+
+<h4>Pre-deploy check (per screen)</h4>
+
+<div class="copy-block">
+<pre><code>For every screen / route / view in the app, verify ALL FOUR states:
+
+[ ] Loading — what shows while data is fetching? (skeleton / spinner / etc.
+    — see Section 9.4 for which to use)
+[ ] Success — the designed UI with data. (Default — AI handles this fine.)
+[ ] Error — what shows if the fetch fails? Network down, 500 from backend,
+    validation failed, etc. (See Section 9.1.)
+[ ] Empty — what shows if the fetch succeeds but returns no data?
+    (See Section 9.3.)
+
+For each screen, output: screen_name | loading_state | success_state |
+error_state | empty_state | gaps_to_fix.
+
+Mark "MISSING" for any state that isn&rsquo;t explicitly handled in code.</code></pre>
+</div>
+
 <h3>9.1 Error states (Part 5 — reel DYr7cKLIQo6)</h3>
 
 <p>Unless you explicitly ask, AI-built apps tend to default to one of three bad patterns: raw stack traces dumped to the user, vague "Something went wrong", or silent failures (button click → nothing happens).</p>
@@ -2509,7 +2558,7 @@ const [likes, addOptimisticLike] = useOptimistic(serverLikes, (state) =&gt; stat
 <table>
 <tr><th>Part</th><th>Topic</th><th>Status</th></tr>
 <tr><td><strong>1</strong></td><td><strong>UI vs UX — the foundation</strong></td><td><span class="pill ok">documented (9.0)</span></td></tr>
-<tr><td>2</td><td>(unknown — Asi hasn&rsquo;t sent it)</td><td><span class="pill warn">missed</span></td></tr>
+<tr><td><strong>2</strong></td><td><strong>The 4 states + loading history</strong></td><td><span class="pill ok">documented (9.0.5)</span></td></tr>
 <tr><td><strong>3</strong></td><td><strong>Loading patterns</strong></td><td><span class="pill ok">documented (9.4)</span></td></tr>
 <tr><td>4</td><td>(unknown — possibly success states)</td><td><span class="pill warn">missed</span></td></tr>
 <tr><td><strong>5</strong></td><td><strong>Error states</strong></td><td><span class="pill ok">documented (9.1)</span></td></tr>
@@ -3354,6 +3403,9 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 <h4>UI vs UX — the foundation <span class="meta">(IG · 2026-05-30 · reel DYIHYJCIAeT · "Building with good UX" Part 1)</span></h4>
 <p>UI = looks; UX = feels. AI tools build the happy path. The 5 UX dimensions to audit: predictability, feedback, recoverability, trust, friction. Full breakdown + UX self-test prompt at <a href="#ux-foundation">Section 9.0 — UI vs UX</a>.</p>
 
+<h4>The 4 states + loading history <span class="meta">(IG · 2026-05-30 · reel DYXxwf-BZpp · "Building with good UX" Part 2)</span></h4>
+<p>Every screen has 4 states: Loading / Success / Error / Empty. AI tools only build "Success" by default. Plus a brief loading-indicator history from 1984 watch cursor → modern skeleton screens. Per-screen pre-deploy check + cross-references to all 4 states&rsquo; sections at <a href="#ux-four-states">Section 9.0.5</a>.</p>
+
 <h4>Loading patterns — skeleton vs spinner vs progress vs optimistic <span class="meta">(IG · 2026-05-30 · reel DYcbCoiIKK1 · "Building with good UX" Part 3)</span></h4>
 <p>4 patterns, each with a specific use case. Spinner on a file upload = users think it&rsquo;s stuck. Skeleton for buttons = wrong scale. Optimistic UI for payments = angry users on failure. Full decision tree + Next.js implementation snippets at <a href="#ux-loading">Section 9.4 — Loading patterns</a>.</p>
 
@@ -3568,6 +3620,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-30 (UX Part 2)</td><td>Added Section 9.0.5 — The 4 states every screen must have (Loading / Success / Error / Empty), from "Building with good UX" Part 2 (reel DYXxwf-BZpp). Includes brief loading-indicator history (1984 watch → 2013 skeleton screens) + per-screen pre-deploy check. Completes another gap in the UX series — now have Parts 1, 2, 3, 5, 6, 8 documented; still missing Parts 4 and 7.</td></tr>
 <tr><td>2026-05-30 (big batch +2)</td><td>Two more reels: <strong>Cache stampede / thundering herd</strong> (reel DYANfXqCYO0) — added to Section 14.2 right after the caching subsection: 4 strategies (request coalescing / cache locking / probabilistic early refresh with XFetch pseudo-code / background refresh worker) + when to use each. <strong>Empty states 5 extra rules</strong> (reel DXMgbFOsjFu) — appended to Section 9.3: tiny illustration, sound human not corporate, primary action not refresh, 4 kinds not 3 (separate filtered-out from error), empty state as best onboarding moment.</td></tr>
 <tr><td>2026-05-30 (big batch)</td><td>Six additions from 9 reels: <strong>Section 2.6</strong> — Leaked-secret incident response (rotate first, scrub second; BFG / git-filter-repo; gitleaks/trufflehog pre-commit hooks). <strong>Section 6.8</strong> — Generalizing multi-step writes (order placement) with sync-vs-async decision framework + queue tooling. <strong>Section 9.0</strong> — UI vs UX foundation (Part 1 of "Building with good UX" series). <strong>Section 9.4</strong> — Loading patterns (Part 3): skeleton vs spinner vs progress vs optimistic UI + decision tree + Next.js snippets. <strong>Section 10.3</strong> — added PocketBase + Dub.co. <strong>Section 16</strong> (new, in Part III architecture playbooks) — File storage architecture: pre-signed URLs, POST vs PUT, multipart, security checklist, audit prompt. Also added cross-reference table for the LinkedIn "Time Bombs" article: 3/5 already covered, 2/5 added inline notes (SQLite-on-Vercel trap, AI context rot mitigation).</td></tr>
 <tr><td>2026-05-29 (post-restructure +3)</td><td>Three additions: <strong>Section 2.5</strong> — "AI made this and ship today" 5-check list (consolidates reels DYDvMAFIHY7 + DYcV1pdoG6X: service-role key exposure, RLS off for debugging, login rate-limit, console.log of secrets, .env in git history; plus frontend/backend validation note). <strong>Section 4.4</strong> — IP / Trademark check before falling in love with a name (reel DYpK8fsTKUe): 4-step check, trademark databases (Israel/EU/US/WIPO), red flags. <strong>Section 8.7</strong> — Docker for non-Vercel workloads (reel DXYh9CHihnt): multi-stage builds, alpine/distroless, .dockerignore, minimal Dockerfile template for Python bots.</td></tr>
