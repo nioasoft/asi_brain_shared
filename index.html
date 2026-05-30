@@ -394,6 +394,7 @@
         <li><a href="#deploy-environments">8.6 The "no DevOps" stack (Sentry + Upstash + Railway)</a></li>
         <li><a href="#deploy-environments">8.7 Docker for non-Vercel workloads (small-image discipline)</a></li>
         <li><a href="#deploy-environments">8.8 When to graduate from Vercel (and where to)</a></li>
+        <li><a href="#deploy-environments">8.9 CI/CD maturity ladder (5 rungs from solo to canary)</a></li>
       </ol>
     </li>
   </ol>
@@ -2210,6 +2211,68 @@ the more code depends on Vercel-isms.</code></pre>
 <strong>For Asi specifically:</strong> the trading bots running on the Mac mini are <strong>exactly</strong> the Railway-shaped workload — long-running, persistent, websocket-heavy. If you ever move them off the Mac mini, Railway is the answer. Client Next.js projects stay on Vercel for the frontend, with optional Railway backend if they need any of the above. <strong>Don&rsquo;t over-engineer:</strong> stay on Vercel-only as long as nothing&rsquo;s actually broken.
 </div>
 
+<h3>8.9 CI/CD maturity ladder — start small, grow when you have users</h3>
+
+<p>Source: IG reel <code>DYh_2F6j2Jb</code> (2026-05-30). The reel framed it well: <em>"Big tech CI/CD pipelines are overkill for a solo vibe coder. But at a bare minimum, you need some kind of test that shows you when your system broke."</em></p>
+
+<p>This is the maturity progression — pick your current rung, know what&rsquo;s next:</p>
+
+<table>
+<tr><th>Stage</th><th>What you have</th><th>When to add the next rung</th></tr>
+<tr>
+  <td><strong>Rung 0 — Solo, no users</strong></td>
+  <td>Push to main → auto-deploy. No tests. No monitoring.</td>
+  <td>The day the first real user uses it.</td>
+</tr>
+<tr>
+  <td><strong>Rung 1 — "Something broke" detection</strong> ⭐ <em>(minimum bar)</em></td>
+  <td>Sentry catches errors. Vercel previews per PR. <code>npm test</code> runs a smoke test before merge.</td>
+  <td>When you have 10+ users you care about disappointing.</td>
+</tr>
+<tr>
+  <td><strong>Rung 2 — Real staging</strong></td>
+  <td>Dev branch with full preview environment (Section 8.1). PR check requires Vercel preview success. Stripe in test mode on staging.</td>
+  <td>When breaking things in prod costs real money or trust.</td>
+</tr>
+<tr>
+  <td><strong>Rung 3 — Infrastructure as Code (IaC)</strong></td>
+  <td>Terraform / Pulumi / Vercel config files in git. Staging environment is a literal clone of production, built from the same code.</td>
+  <td>When the cost of "we set up prod manually and now nobody remembers what" exceeds the cost of learning Terraform.</td>
+</tr>
+<tr>
+  <td><strong>Rung 4 — Gradual rollout</strong></td>
+  <td>Canary releases (1% of users get new version, scale to 100% if no errors). Feature flags (LaunchDarkly, GrowthBook). Geo-staged rollouts (EU first, then US).</td>
+  <td>When one bug affecting 100% of users costs > 1 day of dev time to fix.</td>
+</tr>
+</table>
+
+<h4>The two concepts the reel mentioned worth knowing about</h4>
+
+<p><strong>Infrastructure as Code (IaC)</strong> — instead of "I clicked through the Vercel dashboard to set this up," your entire infrastructure is described in files committed to git. To recreate the prod environment: <code>terraform apply</code>. Tools:</p>
+<ul>
+  <li><strong>Vercel:</strong> <code>vercel.json</code> handles a lot already. For multi-project, use the Vercel Terraform provider.</li>
+  <li><strong>Generic cloud:</strong> Terraform (the standard) or Pulumi (TypeScript-flavored).</li>
+  <li><strong>Lighter:</strong> Docker Compose for self-hosted setups. Renders + Railway both let you commit a YAML config.</li>
+</ul>
+
+<p><strong>Gradual rollout (canary / feature flags)</strong> — instead of "deploy to everyone instantly", new versions reach a small % of users first. If errors spike, automatic rollback. Tools:</p>
+<ul>
+  <li><strong>Feature flags:</strong> <a href="https://growthbook.io">GrowthBook</a> (open source, free), <a href="https://launchdarkly.com">LaunchDarkly</a> (paid, enterprise). Wrap features in <code>if (flagOn("new_payment_flow", user)) { ... }</code>.</li>
+  <li><strong>Canary deploys (platform-level):</strong> Vercel doesn&rsquo;t expose canary natively but you can fake it with feature flags + percentage gates. Cloudflare Workers + Fly.io both support fractional traffic routing.</li>
+</ul>
+
+<h4>For Asi specifically — where you are on the ladder</h4>
+
+<ul>
+  <li><strong>Trading bots:</strong> Rung 0–1. The Mac mini is solo, no users (only you watch them). Add Sentry-equivalent monitoring later if you care to alert on bot crashes — but otherwise current setup is fine.</li>
+  <li><strong>Client Next.js projects:</strong> Rung 1–2 should be the minimum delivery standard. Sentry + Vercel preview-per-PR + a single smoke test (<code>can we hit the homepage</code>). Anything more is overkill until the client has paying users.</li>
+  <li><strong>Big B2B clients (future):</strong> Rung 3 (Terraform) when you take on a client where ops continuity matters. Rung 4 (canary + feature flags) only for clients with > 10K users where one bad deploy = real money.</li>
+</ul>
+
+<div class="note">
+<strong>Don&rsquo;t skip rungs.</strong> Adding Terraform to a 3-user app is wasted time. Adding canary to a no-monitoring app is putting a sports steering wheel on a car with no brakes. Progress one rung at a time, driven by actual pain.
+</div>
+
 </div>
 </section>
 
@@ -3562,6 +3625,9 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 <h4>When to graduate from Vercel (and where to) <span class="meta">(IG · 2026-05-30 · reel DYzc-WUAOlA)</span></h4>
 <p>10-second Hobby timeout = signal you&rsquo;ve outgrown Vercel for this workload. Options: Railway (best successor for long-running), Render (+ managed Postgres), Fly.io (global edge). Split-stack pattern: keep frontend on Vercel, move backend/workers to Railway. ASCII diagram + 6-criteria decision tree at <a href="#deploy-environments">Section 8.8</a>.</p>
 
+<h4>CI/CD for vibe coders — maturity ladder <span class="meta">(IG · 2026-05-30 · reel DYh_2F6j2Jb)</span></h4>
+<p>Big tech CI/CD overkill for solo. Bare minimum: tests that show when broken (Sentry-equivalent monitoring). 5-rung ladder from "solo no users" to "canary + feature flags" with criteria for when to climb. Plus Infrastructure as Code (Terraform) and gradual rollout (GrowthBook/LaunchDarkly) introduced. Full table + Asi-specific placement (bots = rung 0–1, client projects = rung 1–2, big B2B = rung 3+) at <a href="#deploy-environments">Section 8.9</a>.</p>
+
 <h4>2GB Docker image = your business problem <span class="meta">(IG · 2026-05-29 · reel DXYh9CHihnt)</span></h4>
 <p>Multi-stage builds, alpine/distroless base images, <code>.dockerignore</code>. Asi&rsquo;s typical Vercel/Mac mini workflow doesn&rsquo;t need this — relevant if a bot moves to Railway, a client wants self-hosted, or building MCP servers. Minimum Dockerfile + .dockerignore + verification commands at <a href="#deploy-environments">Section 8.7</a>.</p>
 
@@ -3829,6 +3895,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-30 (CI/CD ladder)</td><td>Added Section 8.9 — CI/CD maturity ladder (5 rungs from "solo no users" → "Sentry + smoke tests" → "real staging" → "Infrastructure as Code with Terraform" → "canary + feature flags with GrowthBook/LaunchDarkly"). From IG reel DYh_2F6j2Jb. Includes Asi-specific placement guidance (current bots = rung 0-1, client projects should be rung 1-2 minimum, big B2B clients = rung 3+).</td></tr>
 <tr><td>2026-05-30 (UX Part 7 + Vercel graduation + file-storage extras)</td><td>Four reels (2 new + 2 re-shares acknowledged): <strong>9.1.5 Error placement</strong> (Part 7 of UX series — reel DY0IImqxNQ0) — toast vs modal vs inline + 5 common AI mistakes + audit prompt. <strong>8.8 When to graduate from Vercel</strong> (reel DYzc-WUAOlA) — Vercel limits, Railway/Render/Fly options, split-stack pattern with ASCII diagram, 6-criteria decision tree. <strong>Section 15.3 inline addition</strong> (reel DYPp-arDNmJ) — thread starvation framing + S3 completion event pattern with Lambda example. <strong>2 re-shares acknowledged</strong>: reels DYr7cKLIQo6 (Error states) and DYcbCoiIKK1 (Loading patterns). UX series now has Parts 1, 2, 3, 5, 6, 7, 8 documented — only Part 4 missing.</td></tr>
 <tr><td>2026-05-30 (UX Part 2)</td><td>Added Section 9.0.5 — The 4 states every screen must have (Loading / Success / Error / Empty), from "Building with good UX" Part 2 (reel DYXxwf-BZpp). Includes brief loading-indicator history (1984 watch → 2013 skeleton screens) + per-screen pre-deploy check. Completes another gap in the UX series — now have Parts 1, 2, 3, 5, 6, 8 documented; still missing Parts 4 and 7.</td></tr>
 <tr><td>2026-05-30 (big batch +2)</td><td>Two more reels: <strong>Cache stampede / thundering herd</strong> (reel DYANfXqCYO0) — added to Section 14.2 right after the caching subsection: 4 strategies (request coalescing / cache locking / probabilistic early refresh with XFetch pseudo-code / background refresh worker) + when to use each. <strong>Empty states 5 extra rules</strong> (reel DXMgbFOsjFu) — appended to Section 9.3: tiny illustration, sound human not corporate, primary action not refresh, 4 kinds not 3 (separate filtered-out from error), empty state as best onboarding moment.</td></tr>
