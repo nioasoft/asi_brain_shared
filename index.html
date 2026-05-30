@@ -393,6 +393,7 @@
         <li><a href="#deploy-environments">8.5 Serverless Postgres + database branching (Neon)</a></li>
         <li><a href="#deploy-environments">8.6 The "no DevOps" stack (Sentry + Upstash + Railway)</a></li>
         <li><a href="#deploy-environments">8.7 Docker for non-Vercel workloads (small-image discipline)</a></li>
+        <li><a href="#deploy-environments">8.8 When to graduate from Vercel (and where to)</a></li>
       </ol>
     </li>
   </ol>
@@ -404,6 +405,7 @@
         <li><a href="#ux-foundation">9.0 UI vs UX — the foundation (Part 1)</a></li>
         <li><a href="#ux-four-states">9.0.5 The 4 states every screen must have (Part 2)</a></li>
         <li><a href="#ux-patterns">9.1 Error states (Part 5)</a></li>
+        <li><a href="#ux-error-placement">9.1.5 Error placement — toast vs modal vs inline (Part 7)</a></li>
         <li><a href="#ux-forms">9.2 Forms (Part 6)</a></li>
         <li><a href="#ux-empty-states">9.3 Empty states (Part 8)</a></li>
         <li><a href="#ux-loading">9.4 Loading patterns (Part 3)</a></li>
@@ -2110,6 +2112,104 @@ docker run --rm your-image which gcc make g++ apt</code></pre>
 
 <p>If <code>which gcc</code> returns a path on a production image, you have build tools shipped — go back to multi-stage. Production images should fail every "which &lt;build-tool&gt;" lookup.</p>
 
+<h3>8.8 When to graduate from Vercel (and where to)</h3>
+
+<p>Source: IG reel <code>DYzc-WUAOlA</code> (2026-05-30). "Hitting the 10-second timeout on Vercel hobby" isn&rsquo;t a bug — it&rsquo;s the platform telling you it&rsquo;s time for a bigger house.</p>
+
+<h4>Vercel&rsquo;s real limits (Hobby plan)</h4>
+
+<ul>
+  <li><strong>10-second function timeout</strong> on Hobby (60s on Pro, 300s on Enterprise — but cold-start fees stack).</li>
+  <li><strong>Serverless-only execution</strong> — no persistent processes, no in-memory state across requests, no background workers (without Vercel Cron).</li>
+  <li><strong>4.5MB request body</strong> (default, configurable but limited).</li>
+  <li><strong>Stateless filesystem</strong> — wiped on every deploy and between cold starts. Don&rsquo;t write to disk.</li>
+</ul>
+
+<p><strong>Fine for:</strong> landing pages, marketing sites, dashboards, CRUD apps, anything API-mediated that responds quickly. <strong>Hits the wall for:</strong> file processing, video transcoding, anything iterating over &gt;1000 rows, long-running AI calls (OpenAI streaming over 10s), background jobs, websockets.</p>
+
+<h4>The graduation options (when Vercel isn&rsquo;t enough)</h4>
+
+<table>
+<tr><th>Platform</th><th>Best for</th><th>What you give up</th></tr>
+<tr>
+  <td><a href="https://railway.app"><strong>Railway</strong></a></td>
+  <td>Persistent servers, long-running background jobs, cron, websockets. Best successor to "Vercel hit its limits."</td>
+  <td>You manage a "server" again (still pretty automatic). Less integrated edge network.</td>
+</tr>
+<tr>
+  <td><a href="https://render.com"><strong>Render</strong></a></td>
+  <td>Same as Railway + managed Postgres/Redis included. Good when you want one bill for hosting + DB.</td>
+  <td>Slightly more setup overhead than Railway.</td>
+</tr>
+<tr>
+  <td><a href="https://fly.io"><strong>Fly.io</strong></a></td>
+  <td>Apps that need to be CLOSE to users worldwide (low latency, edge compute). Best for a global audience.</td>
+  <td>More complex networking model. Steeper learning curve.</td>
+</tr>
+<tr>
+  <td><a href="https://www.digitalocean.com"><strong>DigitalOcean App Platform / Droplet</strong></a></td>
+  <td>Cheapest persistent VPS. Full control, low managed-features count. Good for self-hosted PocketBase, n8n, etc.</td>
+  <td>You&rsquo;re back to traditional Ops a bit more.</td>
+</tr>
+</table>
+
+<h4>The split-stack pattern (don&rsquo;t pick one, pick both)</h4>
+
+<p>Most production apps end up with this layout:</p>
+
+<div class="copy-block">
+<pre><code>┌──────────────────┐        HTTPS         ┌──────────────────────┐
+│   FRONTEND       │ ───────────────────→ │   BACKEND / WORKER   │
+│   (Vercel)       │                      │   (Railway or Render)│
+│                  │                      │                      │
+│ - Pages          │                      │ - Long-running jobs  │
+│ - Static assets  │                      │ - Cron tasks         │
+│ - Quick API      │                      │ - Background queues  │
+│ - Marketing site │                      │ - Websockets         │
+└──────────────────┘                      └──────────────────────┘
+        │                                            │
+        └─────────────┬──────────────────────────────┘
+                      ↓
+                 ┌─────────────┐
+                 │  DATABASE   │
+                 │ (Supabase / │
+                 │  Neon)      │
+                 └─────────────┘</code></pre>
+</div>
+
+<p><strong>Both halves talk over HTTPS</strong> — there&rsquo;s no coupling that requires same-host deploys. This is what every production app ends up being eventually, whether the team plans it that way or not.</p>
+
+<h4>"When should I split?" decision tree</h4>
+
+<div class="copy-block">
+<pre><code>You&rsquo;re still on Vercel-only — when to consider splitting?
+
+[ ] Vercel timeout errors in the logs (10s on Hobby, 60s on Pro)
+    → split. Move long-running work to Railway/Render.
+
+[ ] Need cron jobs more frequent than Vercel Cron allows
+    → split. Railway has unlimited cron.
+
+[ ] Need a websocket connection that stays open
+    → split. Vercel doesn&rsquo;t do persistent connections; Railway does.
+
+[ ] Need a background queue (BullMQ, etc.)
+    → split. Vercel functions can&rsquo;t host queue workers.
+
+[ ] Need to write to local disk (e.g., temp file before upload to S3)
+    → split. Vercel filesystem is stateless.
+
+[ ] Doing heavy CPU work (image processing, AI streaming &gt; 30s)
+    → split. Vercel pricing punishes you per request-second.
+
+If 2+ of these are true → split now, not later. The migration gets harder
+the more code depends on Vercel-isms.</code></pre>
+</div>
+
+<div class="note">
+<strong>For Asi specifically:</strong> the trading bots running on the Mac mini are <strong>exactly</strong> the Railway-shaped workload — long-running, persistent, websocket-heavy. If you ever move them off the Mac mini, Railway is the answer. Client Next.js projects stay on Vercel for the frontend, with optional Railway backend if they need any of the above. <strong>Don&rsquo;t over-engineer:</strong> stay on Vercel-only as long as nothing&rsquo;s actually broken.
+</div>
+
 </div>
 </section>
 
@@ -2283,6 +2383,70 @@ For each, suggest a rewrite that:
 
 Don't fix anything yet — produce a numbered list of locations + proposed message
 strings, then I'll review and you'll implement.</code></pre>
+</div>
+
+<h3 id="ux-error-placement">9.1.5 Error placement — toast vs modal vs inline (Part 7 — reel DY0IImqxNQ0)</h3>
+
+<p>The companion to 9.1. Even a great error message in the wrong place is invisible. Three placements, each for a specific use case — getting this wrong is a common AI default.</p>
+
+<table>
+<tr><th>Placement</th><th>When to use</th><th>When NOT to use</th></tr>
+<tr>
+  <td><strong>Toast</strong> (top/bottom, auto-dismisses)</td>
+  <td>Non-critical, recoverable, transient. "Couldn&rsquo;t connect, retrying." "Saved." "Copied to clipboard."</td>
+  <td>Anything important. <strong>If the user looks away for 3 seconds and misses it, are they OK?</strong> If no → don&rsquo;t use a toast.</td>
+</tr>
+<tr>
+  <td><strong>Modal</strong> (center, blocks everything)</td>
+  <td>User can&rsquo;t continue without addressing the issue. Payment failed. Permissions error. Session expired. <strong>Always include a way forward</strong> (button: "Update payment method", "Request access", "Log in again").</td>
+  <td>Anything less than blocking. Modals interrupt and frustrate — use sparingly.</td>
+</tr>
+<tr>
+  <td><strong>Inline</strong> (right next to the problem)</td>
+  <td>The default for most errors. Form field validation, button-click failures, anything where the user&rsquo;s eyes are already in the area.</td>
+  <td>System-wide errors not tied to a specific element (use toast or modal instead).</td>
+</tr>
+</table>
+
+<h4>The general rule</h4>
+
+<blockquote><strong>The closer your error message is to the thing that went wrong, the better.</strong></blockquote>
+
+<p>If the user clicks "Save" and it fails, the message should appear <em>right next to the Save button</em> — that&rsquo;s where their eyes already are. A toast at the top of the screen makes them search for the message. A modal interrupts a flow they expected to be quick.</p>
+
+<h4>Common AI placement mistakes</h4>
+
+<ul>
+  <li><span class="pill danger">WRONG</span> Toast for "payment failed" — user looks away, misses it, retries → double charge. Use modal.</li>
+  <li><span class="pill danger">WRONG</span> Modal for "saved successfully" — interrupts the flow. Use toast.</li>
+  <li><span class="pill danger">WRONG</span> Form-level error banner ("There were errors on the form") for field-level validation — user has to hunt for which field. Use inline per field.</li>
+  <li><span class="pill danger">WRONG</span> Modal blocking everything but no action button — dead end. Always include a way forward.</li>
+  <li><span class="pill ok">RIGHT</span> Inline for field validation + toast for transient system messages + modal only for "can&rsquo;t proceed without this."</li>
+</ul>
+
+<h4>Audit prompt</h4>
+
+<div class="copy-block">
+<pre><code>Audit every place this project shows an error message:
+
+1. Find every component / function that displays an error (toast.error,
+   setError, &lt;Alert&gt;, modal triggers, inline form errors).
+
+2. For each, classify:
+   - Severity: blocking / non-blocking / informational
+   - Placement: toast / modal / inline / banner
+   - Has "way forward" action: yes / no
+
+3. Flag the mismatches:
+   - blocking error in a toast → FAIL (user might miss it)
+   - non-blocking informational in a modal → FAIL (annoying)
+   - field-level validation in a top banner → FAIL (user has to hunt)
+   - modal with no action button → FAIL (dead end)
+
+4. Output: file:line | error_text | current_placement | severity |
+   has_action | verdict | recommended_placement
+
+Don&rsquo;t change code. Just the audit.</code></pre>
 </div>
 
 <h3 id="ux-forms">9.2 Forms (Part 6 — reel DYyzrdpIixM)</h3>
@@ -2563,7 +2727,7 @@ const [likes, addOptimisticLike] = useOptimistic(serverLikes, (state) =&gt; stat
 <tr><td>4</td><td>(unknown — possibly success states)</td><td><span class="pill warn">missed</span></td></tr>
 <tr><td><strong>5</strong></td><td><strong>Error states</strong></td><td><span class="pill ok">documented (9.1)</span></td></tr>
 <tr><td><strong>6</strong></td><td><strong>Forms</strong></td><td><span class="pill ok">documented (9.2)</span></td></tr>
-<tr><td>7</td><td>Error placement (teased in reel 6 — "where errors are placed matters")</td><td><span class="pill warn">missed</span></td></tr>
+<tr><td><strong>7</strong></td><td><strong>Error placement (toast vs modal vs inline)</strong></td><td><span class="pill ok">documented (9.1.5)</span></td></tr>
 <tr><td><strong>8</strong></td><td><strong>Empty states</strong></td><td><span class="pill ok">documented (9.3)</span></td></tr>
 <tr><td>9</td><td>Partial states (teased in reel 8 — "next we talk about partial states")</td><td><span class="pill info">teased, watch for it</span></td></tr>
 <tr><td>10+</td><td>Inline spinners deep-dive (teased in reel 3 — "different kinds, psychology")</td><td><span class="pill info">teased, watch for it</span></td></tr>
@@ -3395,6 +3559,9 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 <h4>Layer 5 — Staging (push-to-main = production) <span class="meta">(IG · 2026-05-30 · reel DYpc9DkghA8 · "13-layer prod stack" series)</span></h4>
 <p>Same content as already documented in <a href="#deploy-environments">Section 8.1 — The 3-environment setup</a> (from earlier reel DYuVqaeRi8q). Push-to-main = production is the trap; staging branches + preview deploys are the fix. Marked as <strong>re-share</strong>; nothing new added.</p>
 
+<h4>When to graduate from Vercel (and where to) <span class="meta">(IG · 2026-05-30 · reel DYzc-WUAOlA)</span></h4>
+<p>10-second Hobby timeout = signal you&rsquo;ve outgrown Vercel for this workload. Options: Railway (best successor for long-running), Render (+ managed Postgres), Fly.io (global edge). Split-stack pattern: keep frontend on Vercel, move backend/workers to Railway. ASCII diagram + 6-criteria decision tree at <a href="#deploy-environments">Section 8.8</a>.</p>
+
 <h4>2GB Docker image = your business problem <span class="meta">(IG · 2026-05-29 · reel DXYh9CHihnt)</span></h4>
 <p>Multi-stage builds, alpine/distroless base images, <code>.dockerignore</code>. Asi&rsquo;s typical Vercel/Mac mini workflow doesn&rsquo;t need this — relevant if a bot moves to Railway, a client wants self-hosted, or building MCP servers. Minimum Dockerfile + .dockerignore + verification commands at <a href="#deploy-environments">Section 8.7</a>.</p>
 
@@ -3406,11 +3573,14 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 <h4>The 4 states + loading history <span class="meta">(IG · 2026-05-30 · reel DYXxwf-BZpp · "Building with good UX" Part 2)</span></h4>
 <p>Every screen has 4 states: Loading / Success / Error / Empty. AI tools only build "Success" by default. Plus a brief loading-indicator history from 1984 watch cursor → modern skeleton screens. Per-screen pre-deploy check + cross-references to all 4 states&rsquo; sections at <a href="#ux-four-states">Section 9.0.5</a>.</p>
 
-<h4>Loading patterns — skeleton vs spinner vs progress vs optimistic <span class="meta">(IG · 2026-05-30 · reel DYcbCoiIKK1 · "Building with good UX" Part 3)</span></h4>
-<p>4 patterns, each with a specific use case. Spinner on a file upload = users think it&rsquo;s stuck. Skeleton for buttons = wrong scale. Optimistic UI for payments = angry users on failure. Full decision tree + Next.js implementation snippets at <a href="#ux-loading">Section 9.4 — Loading patterns</a>.</p>
+<h4>Loading patterns — skeleton vs spinner vs progress vs optimistic <span class="meta">(IG · 2026-05-30, re-shared same day · reel DYcbCoiIKK1 · "Building with good UX" Part 3)</span></h4>
+<p>4 patterns, each with a specific use case. Spinner on a file upload = users think it&rsquo;s stuck. Skeleton for buttons = wrong scale. Optimistic UI for payments = angry users on failure. Full decision tree + Next.js implementation snippets at <a href="#ux-loading">Section 9.4 — Loading patterns</a>. (Re-shared — already documented.)</p>
 
-<h4>Error states — what AI tools build wrong by default <span class="meta">(IG · 2026-05-25 · reel DYr7cKLIQo6 · "Building with good UX" Part 5)</span></h4>
-<p>3 things every error message must do: <strong>what happened, why, what's next</strong>. Don't dump stack traces (security risk too). Don't say "Something went wrong" (vague, breaks trust at payment time). Don't fail silently (worst — AI tool default). Full anti-pattern table + 8-line implementation checklist + ready prompt to audit existing code. See <a href="#ux-patterns">Section 9 — UX patterns</a>.</p>
+<h4>Error states — what AI tools build wrong by default <span class="meta">(IG · 2026-05-25, re-shared 2026-05-30 · reel DYr7cKLIQo6 · "Building with good UX" Part 5)</span></h4>
+<p>3 things every error message must do: <strong>what happened, why, what's next</strong>. Don't dump stack traces (security risk too). Don't say "Something went wrong" (vague, breaks trust at payment time). Don't fail silently (worst — AI tool default). Full anti-pattern table + 8-line implementation checklist + ready prompt to audit existing code. See <a href="#ux-patterns">Section 9 — UX patterns</a>. (Re-shared by Asi on 2026-05-30 — already documented.)</p>
+
+<h4>Error placement — toast vs modal vs inline <span class="meta">(IG · 2026-05-30 · reel DY0IImqxNQ0 · "Building with good UX" Part 7)</span></h4>
+<p>3 placements + when each. Rule: the closer the error to what went wrong, the better. Common AI mistake: toast for blocking errors (user misses it). Full placement table + 5 AI placement mistakes + audit prompt at <a href="#ux-error-placement">Section 9.1.5 — Error placement</a>.</p>
 
 <h4>Caching for slow API / DB calls <span class="meta">(IG · 2026-05-29 · reel DY257b6xGCE)</span></h4>
 <p>General lesson: cache expensive/repeat calls. Reel recommends <strong>Convex Action Cache</strong> — solid component for any Convex project. Asi's <em>current</em> default stack is Next.js + Supabase, but Convex is a legitimate choice for new projects when it fits. For Supabase-stack equivalents: built-in <code>fetch()</code> revalidation, Upstash Redis, TanStack Query, materialized views. Full mapping + audit prompt at <a href="#reels">Section 14.2 — Performance &amp; scaling (old reel index location)</a>.</p>
@@ -3433,7 +3603,10 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 <p>4-version progression: sync everything → push email/warehouse/recs to queue → split into "must-finish" vs "eventually-OK" buckets. The single question: <em>"what must be true before we can honestly tell the user this succeeded?"</em> + warning about silent-fail background workers. Full breakdown + queue tooling table at <a href="#payments-architecture">Section 6.8 — Generalizing multi-step writes</a>.</p>
 
 <h4>File upload service design (Google Drive interview) <span class="meta">(IG · 2026-05-30 · reel DYk0S1pppMl)</span></h4>
-<p>4-version: files in Postgres (bad) → files via server (still bad, 4.5MB Vercel limit) → pre-signed URLs (right). Files never touch your server. Pre-signed POST for browser uploads with content-length-range + content-type allowlist. Full architecture + security checklist + audit prompt at <a href="#file-storage">Section 16 — File storage architecture</a>.</p>
+<p>4-version: files in Postgres (bad) → files via server (still bad, 4.5MB Vercel limit) → pre-signed URLs (right). Files never touch your server. Pre-signed POST for browser uploads with content-length-range + content-type allowlist. Full architecture + security checklist + audit prompt at <a href="#file-storage">Section 15 — File storage architecture</a>.</p>
+
+<h4>Why pre-signed URLs matter (system design interview framing) <span class="meta">(IG · 2026-05-30 · reel DYPp-arDNmJ)</span></h4>
+<p>Companion reel to DYk0S1pppMl. Two new framings added: <strong>thread starvation</strong> (2GB upload holds a request thread + memory; at 100 concurrent uploads your API does zero application work), <strong>double bandwidth bill</strong> (client → server → S3 = 2 transfers, pre-signed = 1). Plus the <strong>S3 completion event</strong> pattern (don&rsquo;t trust the client to call back — use S3 ObjectCreated events to trigger downstream work). Added inline to <a href="#file-storage">Section 15.3</a> with Lambda example.</p>
 
 <h3>14.9 Other (general / repos / commentary)</h3>
 
@@ -3523,6 +3696,42 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
   <li>Returns URL to client.</li>
   <li>Client downloads directly from S3.</li>
 </ol>
+
+<h4>Why this matters at scale (additional context — reel DYPp-arDNmJ, 2026-05-30)</h4>
+
+<p>A second reel on the same topic surfaced this framing — useful for explaining the decision to clients:</p>
+
+<ul>
+  <li><strong>Thread starvation:</strong> a 2GB upload through your server holds a request thread (and the memory) for the entire transfer. At 100 concurrent uploads of 2GB each, the API is doing zero application work — just moving bytes.</li>
+  <li><strong>Double bandwidth bill:</strong> client → your server → S3. You pay egress on the second hop. Pre-signed URL = client → S3 directly. <strong>One transfer, one bill.</strong></li>
+  <li><strong>Vercel hard limits:</strong> Vercel serverless function body is 4.5MB by default. Anything bigger fails outright. Pre-signed URLs bypass the limit entirely.</li>
+  <li><strong>Server returns to its real job:</strong> from "handling gigabytes of binary" to "handling a few hundred bytes of JSON" — exactly what application servers are good at.</li>
+</ul>
+
+<h4>The S3 completion event — kick off downstream work</h4>
+
+<p>When the client finishes uploading directly to S3, you usually need to do something next: generate thumbnails, transcode video, run virus scan, update a database row, send a notification. <strong>S3 fires an event when the upload completes</strong> — use it instead of trusting the client to call you back:</p>
+
+<div class="copy-block">
+<pre><code># S3 → SNS / SQS / Lambda on PutObject
+# (set up in the bucket&rsquo;s Event Notifications)
+
+# Lambda example (Node.js):
+export const handler = async (event) =&gt; {
+  for (const record of event.Records) {
+    const bucket = record.s3.bucket.name;
+    const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, " "));
+    const size = record.s3.object.size;
+
+    // 1. Verify size + key match the user&rsquo;s pending upload row in your DB
+    // 2. Run virus scan / transcoding / thumbnail generation
+    // 3. Update DB: status = "ready"
+    // 4. Notify user via webhook / push notification
+  }
+};</code></pre>
+</div>
+
+<p><strong>Why event-driven, not "trust the client":</strong> a malicious or buggy client might never call back, or might call back with a false key. The S3 event is the only source of truth that "this file actually exists in this bucket."</p>
 
 <h3>15.4 Pre-signed POST vs PUT — pick the right one</h3>
 
@@ -3620,6 +3829,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-30 (UX Part 7 + Vercel graduation + file-storage extras)</td><td>Four reels (2 new + 2 re-shares acknowledged): <strong>9.1.5 Error placement</strong> (Part 7 of UX series — reel DY0IImqxNQ0) — toast vs modal vs inline + 5 common AI mistakes + audit prompt. <strong>8.8 When to graduate from Vercel</strong> (reel DYzc-WUAOlA) — Vercel limits, Railway/Render/Fly options, split-stack pattern with ASCII diagram, 6-criteria decision tree. <strong>Section 15.3 inline addition</strong> (reel DYPp-arDNmJ) — thread starvation framing + S3 completion event pattern with Lambda example. <strong>2 re-shares acknowledged</strong>: reels DYr7cKLIQo6 (Error states) and DYcbCoiIKK1 (Loading patterns). UX series now has Parts 1, 2, 3, 5, 6, 7, 8 documented — only Part 4 missing.</td></tr>
 <tr><td>2026-05-30 (UX Part 2)</td><td>Added Section 9.0.5 — The 4 states every screen must have (Loading / Success / Error / Empty), from "Building with good UX" Part 2 (reel DYXxwf-BZpp). Includes brief loading-indicator history (1984 watch → 2013 skeleton screens) + per-screen pre-deploy check. Completes another gap in the UX series — now have Parts 1, 2, 3, 5, 6, 8 documented; still missing Parts 4 and 7.</td></tr>
 <tr><td>2026-05-30 (big batch +2)</td><td>Two more reels: <strong>Cache stampede / thundering herd</strong> (reel DYANfXqCYO0) — added to Section 14.2 right after the caching subsection: 4 strategies (request coalescing / cache locking / probabilistic early refresh with XFetch pseudo-code / background refresh worker) + when to use each. <strong>Empty states 5 extra rules</strong> (reel DXMgbFOsjFu) — appended to Section 9.3: tiny illustration, sound human not corporate, primary action not refresh, 4 kinds not 3 (separate filtered-out from error), empty state as best onboarding moment.</td></tr>
 <tr><td>2026-05-30 (big batch)</td><td>Six additions from 9 reels: <strong>Section 2.6</strong> — Leaked-secret incident response (rotate first, scrub second; BFG / git-filter-repo; gitleaks/trufflehog pre-commit hooks). <strong>Section 6.8</strong> — Generalizing multi-step writes (order placement) with sync-vs-async decision framework + queue tooling. <strong>Section 9.0</strong> — UI vs UX foundation (Part 1 of "Building with good UX" series). <strong>Section 9.4</strong> — Loading patterns (Part 3): skeleton vs spinner vs progress vs optimistic UI + decision tree + Next.js snippets. <strong>Section 10.3</strong> — added PocketBase + Dub.co. <strong>Section 16</strong> (new, in Part III architecture playbooks) — File storage architecture: pre-signed URLs, POST vs PUT, multipart, security checklist, audit prompt. Also added cross-reference table for the LinkedIn "Time Bombs" article: 3/5 already covered, 2/5 added inline notes (SQLite-on-Vercel trap, AI context rot mitigation).</td></tr>
