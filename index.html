@@ -315,6 +315,7 @@
         <li><a href="#step-3">2.3 Secrets hygiene</a></li>
         <li><a href="#step-4">2.4 One-command quality pass (<code>/security-review</code> + <code>/simplify</code>)</a></li>
         <li><a href="#step-5">2.5 The "AI made this and ship today" 5-check list</a></li>
+        <li><a href="#step-6">2.6 Leaked-secret incident response (rotate first, scrub second)</a></li>
       </ol>
     </li>
     <li><a href="#api-claims">OWASP-grounded API security claims (fact-checked)</a></li>
@@ -349,6 +350,7 @@
         <li><a href="#payments-architecture">6.5 Final architecture diagram</a></li>
         <li><a href="#payments-architecture">6.6 Pre-launch checklist</a></li>
         <li><a href="#payments-architecture">6.7 Audit prompt</a></li>
+        <li><a href="#payments-architecture">6.8 Generalizing — any multi-step write (orders, signups, content publish)</a></li>
       </ol>
     </li>
     <li><a href="#feed-architecture">Feed architecture (Instagram-style — fan-out / push-pull hybrid / Redis)</a>
@@ -362,6 +364,20 @@
         <li><a href="#feed-architecture">7.7 Implementation checklists</a></li>
         <li><a href="#feed-architecture">7.8 Real-world variations</a></li>
         <li><a href="#feed-architecture">7.9 Audit prompt</a></li>
+      </ol>
+    </li>
+  </ol>
+  <ol start="15">
+    <li><a href="#file-storage">File storage architecture (S3 pre-signed URLs)</a>
+      <ol>
+        <li><a href="#file-storage">15.1 Version 1 — files in Postgres (don&rsquo;t)</a></li>
+        <li><a href="#file-storage">15.2 Version 2 — files in S3 via your server</a></li>
+        <li><a href="#file-storage">15.3 Version 3 — pre-signed URLs (right architecture)</a></li>
+        <li><a href="#file-storage">15.4 Pre-signed POST vs PUT</a></li>
+        <li><a href="#file-storage">15.5 Large files — multipart upload</a></li>
+        <li><a href="#file-storage">15.6 URL expiration times</a></li>
+        <li><a href="#file-storage">15.7 Security checklist</a></li>
+        <li><a href="#file-storage">15.8 Audit prompt</a></li>
       </ol>
     </li>
   </ol>
@@ -385,10 +401,12 @@
   <ol start="9">
     <li><a href="#ux-patterns">UX patterns that AI tools get wrong</a>
       <ol>
-        <li><a href="#ux-patterns">9.1 Error states (Part 5 of "Building with good UX")</a></li>
+        <li><a href="#ux-foundation">9.0 UI vs UX — the foundation (Part 1)</a></li>
+        <li><a href="#ux-patterns">9.1 Error states (Part 5)</a></li>
         <li><a href="#ux-forms">9.2 Forms (Part 6)</a></li>
         <li><a href="#ux-empty-states">9.3 Empty states (Part 8)</a></li>
-        <li><a href="#ux-patterns">9.4 Coming in future reels (placeholders)</a></li>
+        <li><a href="#ux-loading">9.4 Loading patterns (Part 3)</a></li>
+        <li><a href="#ux-patterns">9.5 Coming in future reels (placeholders)</a></li>
       </ol>
     </li>
   </ol>
@@ -425,6 +443,8 @@
   <p style="margin: 1rem 0 0.6rem; font-size: 0.82rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">Part IX — Index</p>
   <ol start="14">
     <li><a href="#reels">Reel index (every reel + where it&rsquo;s documented)</a></li>
+  </ol>
+  <ol start="16">
     <li><a href="#changelog">Document changelog</a></li>
   </ol>
 </nav>
@@ -770,6 +790,106 @@ file:line evidence, recommended action }.
 
 Don&rsquo;t change anything. Just the audit.</code></pre>
 </div>
+
+<h3 id="step-6">2.6 Leaked-secret incident response (rotate first, scrub second)</h3>
+
+<p>Source: IG reel <code>DXV91nNivPl</code> (2026-05-30). The DevOps interview scenario: <em>"you accidentally committed AWS keys to a public repo, ran <code>git revert</code> and pushed again — did that solve it?"</em> <strong>No</strong> — and the order of operations matters more than most teams realize.</p>
+
+<h4>Why <code>git revert</code> doesn't help</h4>
+
+<ul>
+  <li><code>git revert</code> creates a new commit that undoes the change. <strong>The original commit is still in history.</strong> Anyone runs <code>git log -p</code> and reads the secret in plaintext.</li>
+  <li>Bots scan every public push on GitHub <strong>in real time</strong>. AWS, GitHub, GitLab, Datadog, and dozens of attackers&rsquo; bots index commits within seconds.</li>
+  <li>AWS itself runs a scanner — they&rsquo;ll email you a warning. But by then, an attacker has usually already tried the key.</li>
+  <li>"I made the repo private" → doesn&rsquo;t help. Cached commits exist on GitHub&rsquo;s side, on attacker&rsquo;s side, and once a secret was public for any length of time, treat it as compromised forever.</li>
+</ul>
+
+<h4>The 3-step response (in this order — order is mandatory)</h4>
+
+<ol>
+  <li><strong>ROTATE FIRST — before touching git.</strong> The key is compromised the moment it hit GitHub. Every second between commit and rotation is a window for an attacker. Don&rsquo;t batch — rotate as the first action.
+    <ul>
+      <li><strong>AWS:</strong> IAM → Users → Security Credentials → revoke access key → generate new one. Update your <code>.env</code>, redeploy.</li>
+      <li><strong>Stripe:</strong> Dashboard → Developers → API Keys → roll the key.</li>
+      <li><strong>GitHub PAT:</strong> Settings → Developer settings → Tokens (classic) → Delete + regenerate.</li>
+      <li><strong>Supabase:</strong> Project Settings → API → Generate new <code>service_role</code> key.</li>
+      <li><strong>OpenAI / Anthropic:</strong> Console → API keys → revoke + generate.</li>
+      <li><strong>Database credentials:</strong> change the password on the DB itself. If it&rsquo;s Supabase: Settings → Database → reset password.</li>
+    </ul>
+  </li>
+  <li><strong>Scrub history second.</strong> Now that the old key is dead, remove it from git history so future contributors and scanners don&rsquo;t see it.
+    <div class="copy-block">
+    <pre><code># Option A: BFG Repo-Cleaner — fastest for credential strings
+# (https://rtyley.github.io/bfg-repo-cleaner/)
+brew install bfg
+bfg --replace-text passwords.txt --no-blob-protection your-repo.git
+# passwords.txt format (one per line):
+#   sk_live_oldkey_here==&gt;***REMOVED***
+#   AKIAIOSFODNN7EXAMPLE==&gt;***REMOVED***
+
+# Option B: git-filter-repo — more flexible, more steps
+# (https://github.com/newren/git-filter-repo)
+pip install git-filter-repo
+git filter-repo --invert-paths --path .env --force
+
+# Then force push (rewrites history):
+git push --force --all
+git push --force --tags
+
+# Notify all collaborators to re-clone — old clones still have the secret</code></pre>
+    </div>
+  </li>
+  <li><strong>Add prevention — set up pre-commit hooks so it can&rsquo;t happen again.</strong>
+    <div class="copy-block">
+    <pre><code># Install gitleaks (https://github.com/gitleaks/gitleaks)
+brew install gitleaks
+
+# Add to project as a pre-commit hook (.git/hooks/pre-commit):
+#!/bin/sh
+gitleaks protect --staged --redact --verbose
+if [ $? -ne 0 ]; then
+  echo "❌ Secrets detected. Commit aborted."
+  exit 1
+fi
+
+# Or use TruffleHog (https://github.com/trufflesecurity/trufflehog)
+brew install trufflehog
+trufflehog git file://. --since-commit HEAD --only-verified</code></pre>
+    </div>
+  </li>
+</ol>
+
+<h4>What people commonly do WRONG</h4>
+
+<ul>
+  <li><span class="pill danger">WRONG</span> <code>git revert</code> + push — the secret is still in the reverted commit's history.</li>
+  <li><span class="pill danger">WRONG</span> Delete the file + commit — the file is still in every prior commit.</li>
+  <li><span class="pill danger">WRONG</span> Make the repo private — secret was public for X seconds/minutes; assume scraped.</li>
+  <li><span class="pill danger">WRONG</span> Scrub history first, rotate later — gives attacker more time before key dies.</li>
+  <li><span class="pill ok">RIGHT</span> Rotate → scrub → force push → install pre-commit hook → notify team to re-clone.</li>
+</ul>
+
+<h4>The "I'm not sure if there's a secret in there" pre-flight scan</h4>
+
+<p>Run this on any repo you suspect:</p>
+<div class="copy-block">
+<pre><code># Scan entire git history with gitleaks
+gitleaks detect --source . --verbose --redact
+
+# Scan with trufflehog (only "verified" = actually-valid keys, less noise)
+trufflehog git file://. --only-verified
+
+# Specific patterns via git log -S (poor man's scan)
+for pattern in "sk_live_" "sk_test_" "AKIA" "ghp_" "gho_" "xoxb-" "AIza"; do
+  echo "--- $pattern ---"
+  git log -p --all -S "$pattern" | head -20
+done</code></pre>
+</div>
+
+<div class="note">
+<strong>The hard truth:</strong> rewriting git history breaks collaborators&rsquo; clones. If your repo has multiple contributors, you need to coordinate the force-push and have everyone re-clone. That coordination overhead is real — which is why preventing the leak via pre-commit hooks is far cheaper than fixing it after.
+</div>
+
 </div>
 </section>
 
@@ -1329,6 +1449,94 @@ For each version, report whether the current code implements it:
 Output: a table of {version, status [present/partial/missing], file:line evidence,
 severity, fix recommendation}. Don't change code yet — just the audit.</code></pre>
 </div>
+
+<h3>6.8 Generalizing: any multi-step write operation (orders, signups, etc.)</h3>
+
+<p>Source: IG reel <code>DYe7hbPiqtb</code> (2026-05-30) — Amazon-style order placement. The same pattern that makes payments work safely also applies to <strong>any operation that needs to do multiple things on submit</strong>: order placement, user signup with notifications, content publishing with indexing.</p>
+
+<h4>The decision that matters: "must finish" vs "eventually OK"</h4>
+
+<p>Take the Amazon order-place example. Place Order kicks off 6 jobs:</p>
+
+<ol>
+  <li>Charge credit card</li>
+  <li>Reserve inventory (so nobody else takes the last one)</li>
+  <li>Save order to database</li>
+  <li>Send confirmation email</li>
+  <li>Notify warehouse to ship</li>
+  <li>Update recommendation engine</li>
+</ol>
+
+<p>The wrong design: do all 6 in sequence before showing "Order Placed". User waits 1.5+ seconds. If <em>any</em> step fails (e.g. email service is down), the whole order errors — but the payment already succeeded. User retries → double charge.</p>
+
+<p>The better design: split jobs into 2 buckets.</p>
+
+<table>
+<tr><th>Must finish BEFORE "Order Placed"</th><th>Can run in background after</th></tr>
+<tr>
+  <td>1. Charge card (or authorize)<br>2. Reserve inventory<br>3. Write order to DB with status="confirmed"</td>
+  <td>4. Send confirmation email<br>5. Notify warehouse<br>6. Update recommendations</td>
+</tr>
+<tr>
+  <td>If any of these fails, "Order Placed" is a lie. Must succeed before returning.</td>
+  <td>If any of these fails, the order is still real. Retry the background job; user is unaffected.</td>
+</tr>
+</table>
+
+<h4>The single most important question</h4>
+
+<blockquote><strong>"What must be true before we can honestly tell the user this action succeeded?"</strong></blockquote>
+
+<p>Anything outside that core <strong>must</strong> go to a background queue. Otherwise you&rsquo;re lying to users (or making them wait unnecessarily, or losing them to duplicate-submission errors).</p>
+
+<h4>The trap with background queues</h4>
+
+<p>The reel called this out: <em>"Email worker stops working at 2am. Customer never gets their confirmation. Calls support. You don&rsquo;t notice until tickets pile up."</em></p>
+
+<p><strong>Background jobs MUST be monitored</strong> — otherwise eventual consistency becomes never-consistent. Required:</p>
+
+<ul>
+  <li><strong>Queue depth alert</strong> — if jobs pile up faster than they&rsquo;re processed, page someone. Common threshold: queue depth &gt; 1000 OR oldest-job-age &gt; 10 min.</li>
+  <li><strong>Dead-letter queue (DLQ)</strong> — after N failed retries, move the job to a DLQ. Don&rsquo;t silently drop. Daily report of DLQ contents.</li>
+  <li><strong>Per-job-type metrics</strong> — separate dashboard for "email send rate" vs "warehouse notify rate". If only one job type is failing, you find it fast.</li>
+  <li><strong>End-to-end test</strong> — synthetic order every 15 min that goes through the full pipeline. If the confirmation email doesn&rsquo;t arrive within 2 min, alert.</li>
+</ul>
+
+<h4>Concrete decision framework</h4>
+
+<div class="copy-block">
+<pre><code>For any multi-step write operation in your app, classify each step:
+
+QUESTION 1: If this step fails AND we tell the user "success", what is the
+            blast radius?
+- "User is charged but no order exists" → MUST-FINISH (sync)
+- "User got a confirmation email twice" → eventual-OK (async)
+- "Recommendation engine is 5 minutes stale" → eventual-OK (async)
+- "Warehouse doesn&rsquo;t ship for 30 seconds" → eventual-OK (async, BUT monitored)
+
+QUESTION 2: How long does this step take in the 95th percentile?
+- &lt; 100ms → fine inline
+- 100ms – 1s → fine inline if must-finish, otherwise push async
+- &gt; 1s → always push async (unless legally must-finish like payment)
+
+QUESTION 3: What&rsquo;s the failure rate?
+- &gt; 1% → cannot be inline-must-finish (user-visible errors too often).
+  Either redesign to remove the dependency, or push async with retry.
+
+OUTPUT: split steps into 2 buckets (sync must-finish / async eventual)
++ for async, define retry policy + DLQ + monitoring metric per job type.</code></pre>
+</div>
+
+<h4>Tools for the async queue (Asi&rsquo;s stack)</h4>
+
+<table>
+<tr><th>Tool</th><th>When to use</th></tr>
+<tr><td><a href="https://upstash.com/docs/qstash">Upstash QStash</a></td><td>Serverless HTTP-based queue. Pairs with Vercel. Free tier 500 messages/day. Best for low-volume client projects.</td></tr>
+<tr><td><a href="https://docs.bullmq.io">BullMQ</a> (on Upstash Redis)</td><td>If you already have Redis. Full retry / DLQ / priorities. Need a worker process running (Railway / Fly.io / VPS).</td></tr>
+<tr><td><a href="https://www.inngest.com">Inngest</a></td><td>Best DX. Type-safe, has step functions, built-in retries + observability. Free tier solid.</td></tr>
+<tr><td><a href="https://supabase.com/docs/guides/database/extensions/pg_cron">Supabase pg_cron + Edge Functions</a></td><td>If you&rsquo;re heavily on Supabase. Schedule jobs from inside Postgres.</td></tr>
+</table>
+
 </div>
 </section>
 
@@ -1912,6 +2120,55 @@ docker run --rm your-image which gcc make g++ apt</code></pre>
 
 <p><strong>Relevance for Asi:</strong> when delivering Next.js client projects, these patterns are the difference between "the site works" and "the site feels professional." Most Claude Code / Cursor / GPT-built UIs ship with bad defaults; this list is the explicit asks you make to fix them.</p>
 
+<h3 id="ux-foundation">9.0 UI vs UX — the foundation (Part 1 — reel DYIHYJCIAeT)</h3>
+
+<p>The series&rsquo; opening reel. The distinction is foundational and most developers conflate the two:</p>
+
+<table>
+<tr><th>UI (User Interface)</th><th>UX (User Experience)</th></tr>
+<tr><td>What the app <em>looks</em> like</td><td>How the app <em>feels</em> to use</td></tr>
+<tr><td>Colors, buttons, layout, typography</td><td>Predictability, recoverability, friction, trust</td></tr>
+<tr><td>"Is it attractive?"</td><td>"Can a stranger figure out what to do without instructions?"</td></tr>
+<tr><td>Designers default to thinking about this</td><td>Engineers default to thinking about this — when it&rsquo;s already too late</td></tr>
+</table>
+
+<h4>The framing line that matters</h4>
+
+<blockquote>"Beautiful UI with bad UX will make people leave."</blockquote>
+
+<h4>Where AI tools systematically fail UX</h4>
+
+<p>AI tools optimize for the <strong>happy path</strong> — what the screen looks like when everything works exactly as planned. They commonly skip:</p>
+
+<ul>
+  <li><strong>Loading states</strong> — what the screen shows while data is fetching (covered in 9.4 below).</li>
+  <li><strong>Error states</strong> — what happens when the network fails or a backend returns an error (covered in 9.1 above).</li>
+  <li><strong>Empty states</strong> — what the user sees when there&rsquo;s no data yet (covered in 9.3 above).</li>
+  <li><strong>Edge inputs</strong> — pasted text with weird characters, very long names, empty submissions.</li>
+  <li><strong>Slow networks</strong> — does it gracefully degrade on a 3G connection?</li>
+</ul>
+
+<h4>The UX self-test for any client deliverable</h4>
+
+<p>Before shipping, walk through the app as if you&rsquo;ve never seen it:</p>
+
+<div class="copy-block">
+<pre><code>For every primary user action in the app, answer all 5:
+
+1. Predictability — Can a first-time user predict what happens BEFORE they click?
+2. Feedback — Within 200ms of any action, does the user see SOMETHING change?
+3. Recoverability — If they make a mistake, can they undo or back out without losing work?
+4. Trust — When something fails, do they understand what failed (not just "error")?
+5. Friction — Could this take fewer steps? Fewer fields? Fewer clicks?
+
+For each PRIMARY action (signup, main feature, payment, etc.):
+- Score each of the 5 dimensions: PASS / PARTIAL / FAIL
+- Note: even one FAIL on a core action = the action will lose users
+
+Output: action_name | predictability | feedback | recoverability | trust | friction
+| overall_pass</code></pre>
+</div>
+
 <h3>9.1 Error states (Part 5 — reel DYr7cKLIQo6)</h3>
 
 <p>Unless you explicitly ask, AI-built apps tend to default to one of three bad patterns: raw stack traces dumped to the user, vague "Something went wrong", or silent failures (button click → nothing happens).</p>
@@ -2141,22 +2398,117 @@ has_echo, has_way_forward, achievement_treatment, severity, fix}.
 Don't fix anything yet. Just the audit.</code></pre>
 </div>
 
-<h3>9.4 Coming in future reels (placeholders)</h3>
+<h3 id="ux-loading">9.4 Loading patterns (Part 3 — reel DYcbCoiIKK1)</h3>
+
+<p>Each loading indicator triggers a different psychological response. Pick the right one for the context — getting this wrong makes users think the app is broken even when it&rsquo;s working.</p>
+
+<h4>The 4 loading patterns and when to use each</h4>
+
+<table>
+<tr><th>Pattern</th><th>When to use</th><th>What it signals to the user</th><th>Real-world examples</th></tr>
+<tr>
+  <td><strong>Skeleton screen</strong></td>
+  <td>Entire page or large section loading. Layout known, data not yet there.</td>
+  <td>"The shape is here, content is coming, this isn&rsquo;t broken."</td>
+  <td>Instagram, LinkedIn, YouTube feeds</td>
+</tr>
+<tr>
+  <td><strong>Progress bar</strong></td>
+  <td>You know how long it takes — file uploads, downloads, installations.</td>
+  <td>"Here&rsquo;s exactly how far along it is + how much longer."</td>
+  <td>Dropbox upload, OS installs</td>
+</tr>
+<tr>
+  <td><strong>Inline spinner</strong></td>
+  <td>Small contained action — a button just clicked, one part refreshing.</td>
+  <td>"We got it, working on it."</td>
+  <td>Button "save"/"submit" spinners, partial list refresh</td>
+</tr>
+<tr>
+  <td><strong>Optimistic UI</strong> (no loader)</td>
+  <td>High-confidence operations that almost never fail. Roll back on the rare failure.</td>
+  <td>"Done." Feels instant.</td>
+  <td>Instagram heart-like, Twitter like, Linear status toggle</td>
+</tr>
+</table>
+
+<h4>Critical anti-patterns</h4>
+
+<ul>
+  <li><strong>Spinner on a file upload</strong> — users assume it&rsquo;s stuck. Use a progress bar. <strong>Always.</strong></li>
+  <li><strong>Skeleton screen for a button click</strong> — wrong scale. Inline spinner is the right unit.</li>
+  <li><strong>Optimistic UI for a payment</strong> — if it later rolls back, the user is angry and confused. Reserve optimistic UI for ops where the failure mode is "no consequence" (likes, drag-and-drop).</li>
+  <li><strong>No loader at all</strong> on a real backend call — users click again, you get double submits, see <a href="#payments-architecture">Section 6 Payments idempotency</a>.</li>
+</ul>
+
+<h4>Decision tree (paste into your prompt to Claude)</h4>
+
+<div class="copy-block">
+<pre><code>For this loading state, pick the right pattern:
+
+1. Is the operation typically &lt; 100ms AND has &lt; 1% failure rate?
+   → Optimistic UI. Update the UI immediately, reconcile if server disagrees.
+
+2. Does the user need to know "how much longer"?
+   → Progress bar. Show real % when known; estimate when not.
+
+3. Is this a whole page or a large region loading?
+   → Skeleton screen. Match the actual layout shape.
+
+4. Is this a small contained action (button, partial refresh)?
+   → Inline spinner.
+
+5. Will the operation take &gt; 3 seconds without feedback?
+   → Whatever pattern you picked, ADD a textual hint ("This usually takes
+     about 5 seconds...") to maintain trust.</code></pre>
+</div>
+
+<h4>Implementation cheat sheet for Next.js</h4>
+
+<div class="copy-block">
+<pre><code>// Skeleton screen — use suspense + a skeleton component
+&lt;Suspense fallback={&lt;FeedSkeleton /&gt;}&gt;
+  &lt;Feed /&gt;
+&lt;/Suspense&gt;
+
+// Progress bar for uploads — use the XHR upload event or fetch + stream reader
+const xhr = new XMLHttpRequest();
+xhr.upload.onprogress = (e) =&gt; setProgress(e.loaded / e.total * 100);
+
+// Inline spinner — disable button while submitting
+const [submitting, setSubmitting] = useState(false);
+&lt;button disabled={submitting} onClick={async () =&gt; {
+  setSubmitting(true);
+  try { await save(); } finally { setSubmitting(false); }
+}}&gt;
+  {submitting ? &lt;Spinner /&gt; : "Save"}
+&lt;/button&gt;
+
+// Optimistic UI — use useOptimistic in React 19 / Next.js 15
+import { useOptimistic } from "react";
+const [likes, addOptimisticLike] = useOptimistic(serverLikes, (state) =&gt; state + 1);
+// On click: addOptimisticLike() first, then await server call</code></pre>
+</div>
+
+<h3>9.5 Coming in future reels (placeholders)</h3>
 
 <p>Same series promises more parts. Asi will send when found.</p>
 
 <table>
 <tr><th>Part</th><th>Topic</th><th>Status</th></tr>
-<tr><td>1–3</td><td>Loading states</td><td><span class="pill warn">missed — not sent yet</span></td></tr>
-<tr><td>4</td><td>(unclear — possibly success states)</td><td><span class="pill warn">missed</span></td></tr>
-<tr><td>5</td><td><strong>Error states</strong></td><td><span class="pill ok">documented (10.1)</span></td></tr>
-<tr><td>6</td><td><strong>Forms</strong></td><td><span class="pill ok">documented (10.2)</span></td></tr>
-<tr><td>7</td><td>Error placement (teased in reel 6)</td><td><span class="pill warn">missed</span></td></tr>
-<tr><td>8</td><td><strong>Empty states</strong></td><td><span class="pill ok">documented (10.3)</span></td></tr>
+<tr><td><strong>1</strong></td><td><strong>UI vs UX — the foundation</strong></td><td><span class="pill ok">documented (9.0)</span></td></tr>
+<tr><td>2</td><td>(unknown — Asi hasn&rsquo;t sent it)</td><td><span class="pill warn">missed</span></td></tr>
+<tr><td><strong>3</strong></td><td><strong>Loading patterns</strong></td><td><span class="pill ok">documented (9.4)</span></td></tr>
+<tr><td>4</td><td>(unknown — possibly success states)</td><td><span class="pill warn">missed</span></td></tr>
+<tr><td><strong>5</strong></td><td><strong>Error states</strong></td><td><span class="pill ok">documented (9.1)</span></td></tr>
+<tr><td><strong>6</strong></td><td><strong>Forms</strong></td><td><span class="pill ok">documented (9.2)</span></td></tr>
+<tr><td>7</td><td>Error placement (teased in reel 6 — "where errors are placed matters")</td><td><span class="pill warn">missed</span></td></tr>
+<tr><td><strong>8</strong></td><td><strong>Empty states</strong></td><td><span class="pill ok">documented (9.3)</span></td></tr>
 <tr><td>9</td><td>Partial states (teased in reel 8 — "next we talk about partial states")</td><td><span class="pill info">teased, watch for it</span></td></tr>
+<tr><td>10+</td><td>Inline spinners deep-dive (teased in reel 3 — "different kinds, psychology")</td><td><span class="pill info">teased, watch for it</span></td></tr>
 </table>
 
-<p>If Asi finds Parts 1–4, 7 (and Part 9 when it drops) on the same creator's profile, send them and I'll add each here.</p>
+<p>If Asi finds Parts 2, 4, 7 (and Part 9 / inline-spinners when they drop) on the same creator&rsquo;s profile, send them and I&rsquo;ll add each here.</p>
 </div>
 </section>
 
@@ -2366,6 +2718,39 @@ pip install -e .</code></pre>
 </div>
 
 <p><strong>References:</strong> <a href="https://github.com/OpenOSINT/OpenOSINT">GitHub repo</a> · <a href="https://openosint.tech/">openosint.tech</a> · <a href="https://medium.com/@tommasobertocchideveloper04/i-gave-claude-13-osint-superpowers-and-let-it-investigate-autonomously-bb9558977a8d">Author's writeup</a> · <a href="https://www.freecodecamp.org/news/build-autonomous-agent-in-python-using-claude/">freeCodeCamp tutorial on autonomous OSINT</a>.</p>
+
+<h4>PocketBase <span class="pill ok">complete backend in a single file</span></h4>
+
+<p>From IG reel <code>DWeEBO7jbvO</code> (2026-05-30). Single binary that gives you: SQLite database + auth + file storage + admin dashboard + REST API + real-time subscriptions. Self-hostable on a $5 VPS, no external dependencies.</p>
+
+<p><strong>When relevant for Asi:</strong></p>
+<ul>
+  <li><strong>MVPs and prototypes</strong> — when a client wants something running in 2 days and Supabase&rsquo;s overhead (project creation, env var coordination, etc.) is too much. A PocketBase Docker container running on Railway is a one-step deployment.</li>
+  <li><strong>Self-hosted client deliveries</strong> — when a client wants the whole stack on their own server (regulated industries, internal tools). PocketBase is one binary; Supabase requires Docker Compose + multiple services.</li>
+  <li><strong>Throwaway side projects</strong> — for your own experiments where Supabase quota would be overkill.</li>
+</ul>
+
+<p><strong>Caveats:</strong></p>
+<ul>
+  <li>SQLite means a <em>single</em> writer at a time. Fine for &lt; 100K daily users; can&rsquo;t scale horizontally (one server, period).</li>
+  <li>Smaller community than Supabase — less Stack Overflow coverage, fewer tutorials.</li>
+  <li>No managed offering (you self-host).</li>
+</ul>
+
+<p><strong>Repo:</strong> <a href="https://github.com/pocketbase/pocketbase">github.com/pocketbase/pocketbase</a> · <strong>Docs:</strong> <a href="https://pocketbase.io">pocketbase.io</a></p>
+
+<h4>Dub.co (open-source link shortener) <span class="pill info">tool to evaluate</span></h4>
+
+<p>From the same IG reel <code>DWeEBO7jbvO</code>. Open-source self-hostable Bitly alternative. Custom domains, analytics dashboard, custom shortlinks, QR codes, team collaboration, API access.</p>
+
+<p><strong>When relevant for Asi:</strong></p>
+<ul>
+  <li><strong>Client marketing campaigns</strong> — when a client wants branded short links (e.g. <code>g.giggsi.co.il/menu</code>) instead of <code>bit.ly/xyz</code>. White-label Bitly basically.</li>
+  <li><strong>Trading bot signal logging</strong> — short links in Telegram messages (link to trade detail page on a future dashboard) without paying Bitly fees.</li>
+  <li><strong>Affiliate tracking</strong> — for the AliExpress affiliate bot idea: branded short links with per-link analytics.</li>
+</ul>
+
+<p><strong>Repo:</strong> <a href="https://github.com/dubinc/dub">github.com/dubinc/dub</a> · <strong>Hosted version:</strong> <a href="https://dub.co">dub.co</a> (free tier available)</p>
 
 <h4>Browser Use <span class="pill ok">verified real — 93K+ GitHub stars</span></h4>
 <p>An open-source Python framework for AI-driven browser automation. From IG reel <code>DY4wy9xSiN8</code> (2026-05-29). The reel framed it as "while everyone was watching ChatGPT Agent and Computer Use, some random developer quietly shipped a free Python framework that does exactly the same thing" — verified, it's real and serious.</p>
@@ -2673,6 +3058,9 @@ For each finding give file:line and a 1-line fix. Don't write code yet.</code></
 
 <h3>14.1 Security-related reels</h3>
 
+<h4>Leaked AWS key — what to actually do (DevOps interview) <span class="meta">(IG · 2026-05-30 · reel DXV91nNivPl)</span></h4>
+<p><code>git revert</code> doesn&rsquo;t help — the original commit is still in history. Rotate FIRST (key is dead the moment it hit GitHub), scrub history second with BFG/git-filter-repo, install pre-commit hooks (gitleaks/trufflehog) to prevent next time. Full 3-step playbook + tools + WRONG/RIGHT table at <a href="#step-6">Section 2.6 — Leaked-secret incident response</a>.</p>
+
 <h4>3 security mistakes AI tools make on every project <span class="meta">(IG · 2026-05-29 · reel DYDvMAFIHY7)</span></h4>
 <p>Front-end-only validation, secrets in code, no authorization checks. Consolidated with reel DYcV1pdoG6X at <a href="#step-5">Section 2.5 — The "AI made this and ship today" 5-check list</a>.</p>
 
@@ -2824,6 +3212,9 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 <h4>Giscard / LLM Guard / Rebuff <span class="meta">(IG · 2026-05-17, re-sent 2026-05-29 · reel DXQiWMVDfXg)</span></h4>
 <p>3 LLM-app security tools. Originally captured 2026-05-17; Asi re-shared the same reel on 2026-05-29 (already in the doc). See <a href="#tools-watching">Section 10.3 — Tools to evaluate</a> for the full breakdown.</p>
 
+<h4>"Faction" — the 80% wall (service ad) <span class="meta">(IG · 2026-05-30 · reel DVrifdkj9R2)</span></h4>
+<p>Ad for a "vibe code finish" service. Skipped as a tool, but the core insight is real: AI generates code that works in the happy path, fails on production edge cases. The whole doc essentially exists to fight this gap (sections 2 / 4 / 8 / 9 in particular). Worth noting; nothing added to the doc itself.</p>
+
 <h4>Forge 8B + scaffolding pattern <span class="meta">(YouTube short · 2026-05-23 · t67C2WeDNvI)</span></h4>
 <p>See <a href="#tools-watching">Section 10.3 — Tools to evaluate</a>.</p>
 
@@ -2861,10 +3252,19 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 <h4>"No DevOps" stack: Sentry + Upstash + Railway <span class="meta">(IG · 2026-05-29 · reel DY7OKr4xruV)</span></h4>
 <p>3 tools, ~1 hour setup, replaces a DevOps engineer for most client projects: Sentry (error tracking), Upstash (Redis + rate limit), Railway (background jobs / persistent compute). Full 3-tool table + 1-hour checklist + audit prompt at <a href="#deploy-environments">Section 8.6</a>.</p>
 
+<h4>Layer 5 — Staging (push-to-main = production) <span class="meta">(IG · 2026-05-30 · reel DYpc9DkghA8 · "13-layer prod stack" series)</span></h4>
+<p>Same content as already documented in <a href="#deploy-environments">Section 8.1 — The 3-environment setup</a> (from earlier reel DYuVqaeRi8q). Push-to-main = production is the trap; staging branches + preview deploys are the fix. Marked as <strong>re-share</strong>; nothing new added.</p>
+
 <h4>2GB Docker image = your business problem <span class="meta">(IG · 2026-05-29 · reel DXYh9CHihnt)</span></h4>
 <p>Multi-stage builds, alpine/distroless base images, <code>.dockerignore</code>. Asi&rsquo;s typical Vercel/Mac mini workflow doesn&rsquo;t need this — relevant if a bot moves to Railway, a client wants self-hosted, or building MCP servers. Minimum Dockerfile + .dockerignore + verification commands at <a href="#deploy-environments">Section 8.7</a>.</p>
 
 <h3>14.7 UX patterns</h3>
+
+<h4>UI vs UX — the foundation <span class="meta">(IG · 2026-05-30 · reel DYIHYJCIAeT · "Building with good UX" Part 1)</span></h4>
+<p>UI = looks; UX = feels. AI tools build the happy path. The 5 UX dimensions to audit: predictability, feedback, recoverability, trust, friction. Full breakdown + UX self-test prompt at <a href="#ux-foundation">Section 9.0 — UI vs UX</a>.</p>
+
+<h4>Loading patterns — skeleton vs spinner vs progress vs optimistic <span class="meta">(IG · 2026-05-30 · reel DYcbCoiIKK1 · "Building with good UX" Part 3)</span></h4>
+<p>4 patterns, each with a specific use case. Spinner on a file upload = users think it&rsquo;s stuck. Skeleton for buttons = wrong scale. Optimistic UI for payments = angry users on failure. Full decision tree + Next.js implementation snippets at <a href="#ux-loading">Section 9.4 — Loading patterns</a>.</p>
 
 <h4>Error states — what AI tools build wrong by default <span class="meta">(IG · 2026-05-25 · reel DYr7cKLIQo6 · "Building with good UX" Part 5)</span></h4>
 <p>3 things every error message must do: <strong>what happened, why, what's next</strong>. Don't dump stack traces (security risk too). Don't say "Something went wrong" (vague, breaks trust at payment time). Don't fail silently (worst — AI tool default). Full anti-pattern table + 8-line implementation checklist + ready prompt to audit existing code. See <a href="#ux-patterns">Section 9 — UX patterns</a>.</p>
@@ -2877,17 +3277,201 @@ Don't add caching yet. Just produce the audit ranked by cache value.</code></pre
 
 <h4>Forms — 6 rules to reduce friction <span class="meta">(IG · 2026-05-29 · reel DYyzrdpIixM · "Building with good UX" Part 6)</span></h4>
 <p>Disabled-with-reason buttons, inline validation onBlur, character counts, pre-fill, live password requirements, forgiving formatting. 6 rules + grep patterns + 12-line per-form checklist + audit prompt. See <a href="#ux-forms">Section 9.2 — Forms</a>.</p>
+
+<h3>14.8 Architecture playbooks (system design reels)</h3>
+
+<h4>Order placement architecture (Amazon-style) <span class="meta">(IG · 2026-05-30 · reel DYe7hbPiqtb)</span></h4>
+<p>4-version progression: sync everything → push email/warehouse/recs to queue → split into "must-finish" vs "eventually-OK" buckets. The single question: <em>"what must be true before we can honestly tell the user this succeeded?"</em> + warning about silent-fail background workers. Full breakdown + queue tooling table at <a href="#payments-architecture">Section 6.8 — Generalizing multi-step writes</a>.</p>
+
+<h4>File upload service design (Google Drive interview) <span class="meta">(IG · 2026-05-30 · reel DYk0S1pppMl)</span></h4>
+<p>4-version: files in Postgres (bad) → files via server (still bad, 4.5MB Vercel limit) → pre-signed URLs (right). Files never touch your server. Pre-signed POST for browser uploads with content-length-range + content-type allowlist. Full architecture + security checklist + audit prompt at <a href="#file-storage">Section 16 — File storage architecture</a>.</p>
+
+<h3>14.9 Other (general / repos / commentary)</h3>
+
+<h4>PocketBase + Dub.co — GitHub repos worth bookmarking <span class="meta">(IG · 2026-05-30 · reel DWeEBO7jbvO)</span></h4>
+<p>PocketBase = single-binary backend (SQLite + auth + storage + admin + REST + realtime) — best for self-hosted client deliveries or MVPs. Dub.co = open-source self-hosted Bitly. Both at <a href="#tools-watching">Section 10.3 — Tools to evaluate</a>.</p>
+
+<h4>5 "Time Bombs" in vibe-coded apps (LinkedIn article) <span class="meta">(text post · 2026-05-30, from QodeShark engineer)</span></h4>
+<p>Cross-reference table — what&rsquo;s already covered vs new:</p>
+<table>
+<tr><th>Time Bomb</th><th>Status in this doc</th></tr>
+<tr><td>1. Vanishing Database (SQLite on Vercel)</td><td><span class="pill warn">partial</span> — implicit in Section 8.5 Neon. NEW addition: see note below.</td></tr>
+<tr><td>2. Open Wallet (API keys in code)</td><td><span class="pill ok">covered</span> in Sections 2.3, 2.5</td></tr>
+<tr><td>3. Goldfish Memory (context rot in AI tools)</td><td><span class="pill warn">workflow issue, not deploy</span> — see note below</td></tr>
+<tr><td>4. White Screen of Death (no loading/error states)</td><td><span class="pill ok">covered</span> in Sections 9.1, 9.4</td></tr>
+<tr><td>5. Legal Landmine (no privacy policy)</td><td><span class="pill ok">covered</span> in Section 4</td></tr>
+</table>
+
+<p><strong>Note on #1 (Vanishing Database):</strong> the trap is that AI tools often default to SQLite stored as a file inside the project (<code>./db.sqlite</code>). Vercel serverless functions have an ephemeral filesystem — the file is deleted on every redeploy and between cold starts. Result: user data evaporates. <strong>Fix:</strong> always use an external database for any persisted user data. Supabase, Neon (Section 8.5), or PocketBase running on a non-serverless host (Railway, Section 8.6). <strong>Never SQLite on Vercel/Netlify.</strong></p>
+
+<p><strong>Note on #3 (Context rot):</strong> not a deploy issue — it&rsquo;s an AI-workflow issue. As the codebase grows, Claude&rsquo;s context window can&rsquo;t hold all of it; it starts "fixing" things by breaking unrelated things. Mitigation: use <code>CLAUDE.md</code> (one per project) to pin the most important architectural decisions; refactor when files exceed ~500 lines; ask Claude to <em>"only modify file X, do not touch Y"</em> when scope creep starts. Not specific to any section here — applies to every AI-built project.</p>
+</div>
+</section>
+
+<section class="major" id="file-storage">
+<h2>15. File storage architecture (S3 pre-signed URLs, never proxy files)</h2>
+<div class="section-body">
+
+<p>Source: IG reel <code>DYk0S1pppMl</code> (2026-05-30) — Google Drive file upload service design interview. Same 4-version progression structure as Sections 6 (Payments) and 7 (Feed): naive → incremental fix → "ah-ha, that&rsquo;s how it should be done." Belongs in Part III (Architecture Playbooks) conceptually even though it ended up at the end of the file.</p>
+
+<div class="note">
+<strong>When this section applies:</strong> any client project with file uploads — profile pictures, documents, PDFs, audio, video. Examples from Asi&rsquo;s portfolio: a clinic that uploads patient X-rays, a marketplace where sellers upload product images, a course platform where instructors upload videos.
+</div>
+
+<h3>15.1 Version 1 — naive: files in Postgres</h3>
+
+<p>The default AI suggestion when you say "I need file uploads":</p>
+<ol>
+  <li>User POSTs file + metadata to your API.</li>
+  <li>API stores the file BLOB in Postgres + metadata row.</li>
+  <li>API returns success.</li>
+</ol>
+
+<p><strong>Why this breaks:</strong></p>
+<ul>
+  <li>Postgres is bad at large blobs. 50MB rows kill query performance.</li>
+  <li>Backup size explodes. A 100GB DB of files takes forever to back up / restore.</li>
+  <li>You pay for hot DB storage for files that get touched once a year.</li>
+</ul>
+
+<h3>15.2 Version 2 — metadata in Postgres, file in S3 (via your server)</h3>
+
+<p>Move files to object storage, keep metadata where it&rsquo;s queryable:</p>
+<ol>
+  <li>User POSTs file + metadata to your API.</li>
+  <li>API stores file in <strong>S3</strong> (or R2 / GCS / Supabase Storage).</li>
+  <li>API writes the S3 key + metadata row in Postgres.</li>
+  <li>API returns success.</li>
+</ol>
+
+<p><strong>Better — but still has a real problem:</strong> every file goes <em>through your server</em>. A 500MB upload occupies your server&rsquo;s RAM and bandwidth and request timeout. On Vercel serverless functions you have a <strong>4.5MB request body limit by default</strong>; uploads of larger files fail.</p>
+
+<h3>15.3 Version 3 — pre-signed URLs (the right architecture)</h3>
+
+<p>Files never touch your server. Your server only mints a temporary signed URL that authorizes the user to upload directly to S3.</p>
+
+<h4>Upload flow</h4>
+
+<ol>
+  <li>User says "I want to upload <code>logo.png</code> (2MB, image/png)".</li>
+  <li>Your API:
+    <ul>
+      <li>Checks auth: this user is allowed to upload.</li>
+      <li>Generates a <strong>pre-signed PUT URL</strong> for an S3 key like <code>uploads/{user_id}/{uuid}.png</code>. Expires in 15 minutes.</li>
+      <li>Writes a "pending upload" row in Postgres (or skips this until the upload completes — see post-upload webhook below).</li>
+      <li>Returns the URL to the client.</li>
+    </ul>
+  </li>
+  <li>Client uploads the file <strong>directly to S3</strong> via PUT to that URL. Your server never sees the bytes.</li>
+  <li>Client confirms to your API: "upload done at key X". Your API verifies the object exists in S3, writes the final metadata row.</li>
+</ol>
+
+<h4>Download flow (same pattern)</h4>
+
+<ol>
+  <li>User requests file ID.</li>
+  <li>Your API checks auth, looks up the S3 key, generates a <strong>pre-signed GET URL</strong> (expires in 15 min).</li>
+  <li>Returns URL to client.</li>
+  <li>Client downloads directly from S3.</li>
+</ol>
+
+<h3>15.4 Pre-signed POST vs PUT — pick the right one</h3>
+
+<table>
+<tr><th>Pre-signed PUT URL</th><th>Pre-signed POST request (form)</th></tr>
+<tr>
+  <td>Simple. One URL = one operation on one key.</td>
+  <td>More complex: a JSON policy with rules.</td>
+</tr>
+<tr>
+  <td>Client can upload <strong>anything</strong> to that key — your only control is the key name and content-type if you encoded it.</td>
+  <td>Server-side enforcement of: max file size, allowed content-types, key prefix, custom metadata.</td>
+</tr>
+<tr>
+  <td><span class="pill ok">Right for</span> trusted clients, simple uploads, when you control the client app.</td>
+  <td><span class="pill ok">Right for</span> browser uploads from untrusted clients. The policy stops users from uploading 50GB or executable files.</td>
+</tr>
+</table>
+
+<h3>15.5 Large files — multipart upload</h3>
+
+<ul>
+  <li><strong>Pre-signed URLs cap at 5GB</strong> per single upload.</li>
+  <li>For larger files (up to 5TB), use <strong>S3 multipart upload</strong>: split the file into 5MB–5GB parts, get a pre-signed URL for each part, upload in parallel, then call a "complete multipart upload" endpoint that stitches them.</li>
+  <li>Max 10,000 parts. Most apps will never need this — but if you&rsquo;re building a backup tool, a video platform, or anything with 5GB+ assets, plan for it from day one.</li>
+</ul>
+
+<h3>15.6 Expiration times</h3>
+
+<table>
+<tr><th>Use case</th><th>Recommended TTL</th></tr>
+<tr><td>Upload URL</td><td>15 minutes (default). Users start uploading immediately.</td></tr>
+<tr><td>Download URL (private file)</td><td>15 min to 1 hour. Long enough to download, short enough that a leaked URL is mostly useless.</td></tr>
+<tr><td>Public asset (profile picture in HTML)</td><td>1–24 hours. Or use CloudFront / Cloudflare CDN in front of S3 with cached responses — no pre-signed URL needed.</td></tr>
+<tr><td>Background data export user requested</td><td>24 hours. They might not download immediately.</td></tr>
+</table>
+
+<p>Max TTL: <strong>12 hours via the AWS console</strong>, <strong>7 days via SDK/CLI</strong>.</p>
+
+<h3>15.7 Security checklist for file uploads</h3>
+
+<div class="copy-block">
+<pre><code>[ ] Authentication required to get a pre-signed URL (auth check in API)
+[ ] Authorization check: this user can upload to this path
+    (e.g. only to /uploads/{their_user_id}/, never to /uploads/{someone_else}/)
+[ ] Pre-signed POST with content-length-range condition for browser uploads
+    (prevents 50GB uploads from a malicious client)
+[ ] Pre-signed POST with content-type allowlist for browser uploads
+    (prevents .exe being uploaded with image extension trick)
+[ ] Server-side virus / malware scan if accepting executable types
+    (ClamAV in a Lambda triggered on PUT, or use a service like VirusTotal API)
+[ ] S3 bucket is NOT public — pre-signed URLs are the only read path
+[ ] CORS configured on the bucket to only allow your app&rsquo;s origins for browser uploads
+[ ] CloudTrail logging enabled on the bucket so you can audit who uploaded what
+[ ] Lifecycle rules: move old uploads to S3 Glacier after N days for cost
+[ ] Backup: bucket versioning enabled (so accidental delete doesn&rsquo;t lose data)
+[ ] For Supabase users: Supabase Storage uses the same pre-signed URL pattern
+    under the hood. Same principles apply, same checklist.</code></pre>
+</div>
+
+<h3>15.8 Audit prompt for existing file-upload code</h3>
+
+<div class="copy-block">
+<pre><code>This project has a file upload feature. Audit it against the 4-version progression:
+
+V1 (files in Postgres): grep for `bytea`, `blob`, large columns being inserted.
+   If found → CRITICAL, migrate to S3.
+V2 (files through server): find the upload route handler. Does it
+   `await req.formData()` or similar and then upload to S3? If yes,
+   server is in the path → severity HIGH.
+V3 (pre-signed URLs): is there a route that generates a pre-signed URL and
+   returns it to the client? If yes, are these checks present:
+   - Auth required on the URL-mint route?
+   - Authorization: user can only mint URLs for paths they own?
+   - Pre-signed POST with content-length-range + content-type allowlist?
+   - URL TTL ≤ 1 hour?
+   - S3 bucket itself not publicly readable?
+
+For each gap, output: { version, file:line, severity, fix recommendation }.
+
+Cross-reference: if the project uses Supabase Storage, treat that as already-V3
+(it&rsquo;s pre-signed URLs under the hood) but check the same Auth/Authz/TTL items.
+
+Don&rsquo;t change code. Just the audit.</code></pre>
+</div>
+
 </div>
 </section>
 
 <section class="major" id="changelog">
-<h2>15. Document changelog</h2>
+<h2>16. Document changelog</h2>
 <div class="section-body">
 
 <p>Append a row here every time we update this file. Newest at the top.</p>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-30 (big batch)</td><td>Six additions from 9 reels: <strong>Section 2.6</strong> — Leaked-secret incident response (rotate first, scrub second; BFG / git-filter-repo; gitleaks/trufflehog pre-commit hooks). <strong>Section 6.8</strong> — Generalizing multi-step writes (order placement) with sync-vs-async decision framework + queue tooling. <strong>Section 9.0</strong> — UI vs UX foundation (Part 1 of "Building with good UX" series). <strong>Section 9.4</strong> — Loading patterns (Part 3): skeleton vs spinner vs progress vs optimistic UI + decision tree + Next.js snippets. <strong>Section 10.3</strong> — added PocketBase + Dub.co. <strong>Section 16</strong> (new, in Part III architecture playbooks) — File storage architecture: pre-signed URLs, POST vs PUT, multipart, security checklist, audit prompt. Also added cross-reference table for the LinkedIn "Time Bombs" article: 3/5 already covered, 2/5 added inline notes (SQLite-on-Vercel trap, AI context rot mitigation).</td></tr>
 <tr><td>2026-05-29 (post-restructure +3)</td><td>Three additions: <strong>Section 2.5</strong> — "AI made this and ship today" 5-check list (consolidates reels DYDvMAFIHY7 + DYcV1pdoG6X: service-role key exposure, RLS off for debugging, login rate-limit, console.log of secrets, .env in git history; plus frontend/backend validation note). <strong>Section 4.4</strong> — IP / Trademark check before falling in love with a name (reel DYpK8fsTKUe): 4-step check, trademark databases (Israel/EU/US/WIPO), red flags. <strong>Section 8.7</strong> — Docker for non-Vercel workloads (reel DXYh9CHihnt): multi-stage builds, alpine/distroless, .dockerignore, minimal Dockerfile template for Python bots.</td></tr>
 <tr><td>2026-05-29 (post-restructure)</td><td>Added Section 8.6: "No DevOps" stack — Sentry (error tracking) + Upstash (Redis + rate-limit) + Railway (persistent compute). 1-hour setup checklist + audit prompt. From IG reel DY7OKr4xruV. Also noted that reel DXQiWMVDfXg (Giscard/LLM Guard/Rebuff) is a re-share of content already documented from 2026-05-17.</td></tr>
 <tr><td>2026-05-29 (RESTRUCTURE — bible-style)</td><td><strong>Per Asi's request: full document restructure.</strong> Sections reorganized chronological → topical, grouped into 9 Parts (Foundation / Security &amp; Compliance / Architecture Playbooks / Pre-Delivery Operations / UX Patterns / Tools &amp; Skills / Design / Operational Knowledge / Index). New numbering: Foundation (1) · Security: runbook (2), OWASP claims (3), Legal (4) · Architecture playbooks: Multi-tenancy (5), Payments (6), Feed (7) · Deployment (8) · UX (9) · Tools (10) · Design (11) · Bot patterns (12) · Prompts (13) · Reel index (14) · Changelog (15). All 41 H3 subsection numbers renumbered to match. All 27 cross-references between sections updated. TOC fully rebuilt with all subsections + Part dividers. Also added Section 8.5: Serverless Postgres + database branching (Neon) from IG reel DY1-cZaRlSD (when Neon vs Supabase + setup checklist + audit prompt).</td></tr>
