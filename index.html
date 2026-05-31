@@ -395,6 +395,7 @@
         <li><a href="#deploy-environments">8.7 Docker for non-Vercel workloads (small-image discipline)</a></li>
         <li><a href="#deploy-environments">8.8 When to graduate from Vercel (and where to)</a></li>
         <li><a href="#deploy-environments">8.9 CI/CD maturity ladder (5 rungs from solo to canary)</a></li>
+        <li><a href="#deploy-environments">8.10 Product analytics (PostHog / Amplitude — what users actually do)</a></li>
       </ol>
     </li>
   </ol>
@@ -2285,6 +2286,114 @@ the more code depends on Vercel-isms.</code></pre>
 <strong>Don&rsquo;t skip rungs.</strong> Adding Terraform to a 3-user app is wasted time. Adding canary to a no-monitoring app is putting a sports steering wheel on a car with no brakes. Progress one rung at a time, driven by actual pain.
 </div>
 
+<h3>8.10 Product analytics — what users actually do (you can&rsquo;t guess)</h3>
+
+<p>Source: IG reel <code>DY2zZvMsVzj</code> (2026-05-31). The reel makes a real point: <em>"One thing vibe coders constantly forget to add is product analytics."</em> Then pitches Amplitude — that part is an ad, but the underlying need is real and almost always missing in client deliveries.</p>
+
+<div class="note">
+<strong>Note on terminology:</strong> "Product analytics" is different from "site analytics" (Google Analytics, Plausible). Site analytics tells you <em>"how many visitors did /pricing get last month."</em> Product analytics tells you <em>"of users who signed up last week, what % completed onboarding, what % paid, where did the others drop off."</em> Both useful — but the second is the one that tells you what to build next.
+</div>
+
+<h4>What product analytics actually answers</h4>
+
+<ul>
+  <li>Which buttons are clicked / never clicked.</li>
+  <li>How long users stay on each page.</li>
+  <li>Where they drop off in onboarding / checkout / signup.</li>
+  <li>What actions a churned user took right before cancelling.</li>
+  <li>What % of users use each feature (so you know which features to deprecate).</li>
+  <li>Conversion funnels: visit → signup → activate → pay → retain.</li>
+</ul>
+
+<h4>The 3 tools worth knowing</h4>
+
+<table>
+<tr><th>Tool</th><th>Best for</th><th>Cost</th><th>Caveat</th></tr>
+<tr>
+  <td><strong><a href="https://posthog.com">PostHog</a></strong> ⭐</td>
+  <td>Default recommendation for Asi. Open-source, self-hostable, full feature set (analytics + session replay + feature flags + A/B tests).</td>
+  <td>Generous free tier (1M events/month cloud, OR self-host on a $5 VPS).</td>
+  <td>Setup takes 1 hour; learn curve a couple hours.</td>
+</tr>
+<tr>
+  <td><strong><a href="https://amplitude.com">Amplitude</a></strong></td>
+  <td>The reel&rsquo;s pick. Industry-standard product analytics, polished dashboards.</td>
+  <td>Free tier 10M events/month; paid plans expensive.</td>
+  <td>Less flexible than PostHog, no self-host option, more vendor lock-in.</td>
+</tr>
+<tr>
+  <td><strong><a href="https://plausible.io">Plausible</a></strong> / <a href="https://umami.is">Umami</a></td>
+  <td>Lightweight site analytics (pageviews, referrers, browsers) — NOT product analytics. Privacy-friendly, GDPR-safe, no cookie banner.</td>
+  <td>Plausible $9/mo. Umami self-hostable.</td>
+  <td>Doesn&rsquo;t answer "what did users do inside the app." Pair with PostHog for the deeper questions.</td>
+</tr>
+</table>
+
+<h4>What to track (the minimum useful event set)</h4>
+
+<p>Track too little = no insight. Track too much = noise and event-quota bills. The right minimum:</p>
+
+<div class="copy-block">
+<pre><code>// Identity events
+posthog.identify(userId, { email, plan, signupDate });
+
+// Lifecycle events (the funnel)
+posthog.capture("user_signed_up", { source });
+posthog.capture("onboarding_step_completed", { step, total_steps });
+posthog.capture("first_meaningful_action", { action_name });
+posthog.capture("payment_completed", { amount, currency });
+posthog.capture("subscription_cancelled", { reason, days_subscribed });
+
+// Feature usage (one event per primary feature)
+posthog.capture("feature_used", { feature, context });
+
+// Errors that reach the user
+posthog.capture("error_shown_to_user", { message, page });</code></pre>
+</div>
+
+<p>That&rsquo;s it. Maybe 10-15 unique event names per app. Resist the urge to track every click — you&rsquo;ll never look at most of it.</p>
+
+<h4>What to actually look at (weekly review)</h4>
+
+<ol>
+  <li><strong>Funnel:</strong> signup → onboarding complete → first action → paid. Where&rsquo;s the biggest % drop?</li>
+  <li><strong>Activation rate:</strong> % of new users who hit "first meaningful action" within 24h. If low, your onboarding is broken.</li>
+  <li><strong>Feature usage:</strong> sorted by % of users using each. Bottom 20% are candidates for deprecation.</li>
+  <li><strong>Churn replay:</strong> for each cancelled user, look at their last 10 events. Pattern emerges within 5–10 reviews.</li>
+</ol>
+
+<h4>For Asi specifically</h4>
+
+<ul>
+  <li><strong>Client projects with users</strong> (Bashier, etc. — anything past the brochure-site phase): install PostHog at delivery. <strong>10x more valuable than the client realizes.</strong> Show them the funnel dashboard on month 1 and they&rsquo;ll see why they hired you.</li>
+  <li><strong>Trading bot infrastructure</strong>: not applicable (you&rsquo;re the only user). Bots already log events to JSON.</li>
+  <li><strong>Future SaaS / MVP launches (your own products)</strong>: PostHog from day 1. Cheaper than retrofitting later, and informs every product decision.</li>
+  <li><strong>Brochure / static sites</strong>: skip product analytics. Use Plausible or Umami for site stats only. Don&rsquo;t over-engineer.</li>
+</ul>
+
+<h4>Pre-delivery prompt for any client project</h4>
+
+<div class="copy-block">
+<pre><code>This project is about to be delivered. Audit whether it needs analytics:
+
+1. Site analytics (page views, referrers, basic traffic)?
+   - YES if: real user-facing site, brochure or app.
+   - Recommend: Plausible (paid, simple, GDPR-clean) or Umami (self-host).
+   - PostHog also covers this if installed.
+
+2. Product analytics (what users DO inside the app)?
+   - YES if: there&rsquo;s any user account, signup, or feature with measurable use.
+   - Recommend: PostHog (default), Amplitude (if budget allows).
+   - Identify the 8-12 events worth tracking based on the app&rsquo;s structure.
+
+3. Output:
+   - tool recommendation + reasoning
+   - event list (one per key user action)
+   - 1-week setup plan: day 1 install, day 2 instrument, day 3-7 watch real data
+
+Don&rsquo;t install yet. Just the plan.</code></pre>
+</div>
+
 </div>
 </section>
 
@@ -3814,6 +3923,9 @@ function SearchBox() {
 <h4>CI/CD for vibe coders — maturity ladder <span class="meta">(IG · 2026-05-30 · reel DYh_2F6j2Jb)</span></h4>
 <p>Big tech CI/CD overkill for solo. Bare minimum: tests that show when broken (Sentry-equivalent monitoring). 5-rung ladder from "solo no users" to "canary + feature flags" with criteria for when to climb. Plus Infrastructure as Code (Terraform) and gradual rollout (GrowthBook/LaunchDarkly) introduced. Full table + Asi-specific placement (bots = rung 0–1, client projects = rung 1–2, big B2B = rung 3+) at <a href="#deploy-environments">Section 8.9</a>.</p>
 
+<h4>Product analytics — what users actually do <span class="meta">(IG · 2026-05-31 · reel DY2zZvMsVzj)</span></h4>
+<p>Reel pitches Amplitude. The need is real and almost always missing in client deliveries — "product analytics" (PostHog/Amplitude) is different from "site analytics" (Plausible/GA). 3 tools table + minimum-useful event set + weekly review checklist + Asi-specific guidance (PostHog default for client apps; skip for brochure sites; not applicable for bots) + pre-delivery audit prompt at <a href="#deploy-environments">Section 8.10</a>.</p>
+
 <h4>2GB Docker image = your business problem <span class="meta">(IG · 2026-05-29 · reel DXYh9CHihnt)</span></h4>
 <p>Multi-stage builds, alpine/distroless base images, <code>.dockerignore</code>. Asi&rsquo;s typical Vercel/Mac mini workflow doesn&rsquo;t need this — relevant if a bot moves to Railway, a client wants self-hosted, or building MCP servers. Minimum Dockerfile + .dockerignore + verification commands at <a href="#deploy-environments">Section 8.7</a>.</p>
 
@@ -4090,6 +4202,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-31 (product analytics)</td><td>Added Section 8.10 — Product analytics (PostHog / Amplitude). From reel DY2zZvMsVzj. Includes the product-vs-site analytics distinction (Plausible answers "how many visitors"; PostHog answers "what % of users complete onboarding"), 3-tool comparison, minimum useful event set (~10 events not 100), weekly review checklist, Asi-specific guidance per project type, and a pre-delivery audit prompt.</td></tr>
 <tr><td>2026-05-31 (Karpathy 7 habits)</td><td>Added Section 17 — Working with AI coding agents (Karpathy&rsquo;s 7 habits). From an X article by @scottybeamio (article wasn&rsquo;t accessible via standard fetch — extracted with a headless browser script). The 7 habits cover: context over prompts, 5-item CLAUDE.md template (full template included), /raw → /wiki 3-layer system (with concrete file-layout example), save-after-good-answers, index.md + log.md for any project &gt; 1 week, "brilliant intern on a short leash" workflow loop (load context → 2-3 options → pick → test → commit → repeat), and the "structure as HTML" output trick. Includes Asi-specific habit-by-habit mapping table (what he already does, what to start), and 5 copy-paste prompts.</td></tr>
 <tr><td>2026-05-30 (debouncing)</td><td>Added debouncing subsection to 14.2 from reel DY79qxIvkku — fix for AI-default "DB query per keystroke" pattern. 8-line React hook + TanStack Query integration + 3 timing values by use case (150/300/500-800ms). Also acknowledged Layer 12 reel (DY7iptdRsB0) as re-share of Sentry coverage in 8.6/8.9.</td></tr>
 <tr><td>2026-05-30 (UX Part 9)</td><td>Added Section 9.5 — Partial states &amp; graceful degradation (Part 9 of UX series, reel DY-IhhSBV9b). Each screen section loads/fails independently. Per-section <code>Suspense</code> + <code>ErrorBoundary</code> pattern. Includes Next.js + React 19 implementation snippet + TanStack Query alternative + grep patterns for anti-patterns + decision rule. UX series now 8/9: Parts 1, 2, 3, 5, 6, 7, 8, 9 documented — only Part 4 missing.</td></tr>
