@@ -444,6 +444,17 @@
     <li><a href="#bot-patterns">Bot code-quality patterns we&rsquo;ve learned</a></li>
     <li><a href="#prompts">Reusable prompts (copy-paste)</a></li>
   </ol>
+  <ol start="17">
+    <li><a href="#ai-workflow">Working with AI coding agents — the 7 Karpathy habits</a>
+      <ol>
+        <li><a href="#ai-workflow">17.1 The 7 habits (full breakdown)</a></li>
+        <li><a href="#ai-workflow">17.2 What this means for Asi specifically</a></li>
+        <li><a href="#ai-workflow">17.3 The CLAUDE.md 5-item template</a></li>
+        <li><a href="#ai-workflow">17.4 The /raw → /wiki workflow (concrete example)</a></li>
+        <li><a href="#ai-workflow">17.5 Ready prompts (copy-paste)</a></li>
+      </ol>
+    </li>
+  </ol>
 
   <p style="margin: 1rem 0 0.6rem; font-size: 0.82rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">Part IX — Index</p>
   <ol start="14">
@@ -3857,6 +3868,9 @@ function SearchBox() {
 
 <h3>14.9 Other (general / repos / commentary)</h3>
 
+<h4>Karpathy&rsquo;s 7 AI workflow habits (X article) <span class="meta">(X · 2026-05-28 · @scottybeamio status 2059998232168571039)</span></h4>
+<p>Meta-advice on <em>how to use Claude Code itself</em>. 7 habits: context-over-prompts, 5-item CLAUDE.md, 3-layer system (raw/wiki/CLAUDE.md), save-permanently after good answers, index.md+log.md for &gt;1-week projects, brilliant-intern-on-short-leash workflow, HTML output trick. Full breakdown + Asi-specific mapping + CLAUDE.md template + /raw→/wiki concrete workflow + 5 ready prompts at <a href="#ai-workflow">Section 17 — Working with AI coding agents</a>.</p>
+
 <h4>PocketBase + Dub.co — GitHub repos worth bookmarking <span class="meta">(IG · 2026-05-30 · reel DWeEBO7jbvO)</span></h4>
 <p>PocketBase = single-binary backend (SQLite + auth + storage + admin + REST + realtime) — best for self-hosted client deliveries or MVPs. Dub.co = open-source self-hosted Bitly. Both at <a href="#tools-watching">Section 10.3 — Tools to evaluate</a>.</p>
 
@@ -4076,6 +4090,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-05-31 (Karpathy 7 habits)</td><td>Added Section 17 — Working with AI coding agents (Karpathy&rsquo;s 7 habits). From an X article by @scottybeamio (article wasn&rsquo;t accessible via standard fetch — extracted with a headless browser script). The 7 habits cover: context over prompts, 5-item CLAUDE.md template (full template included), /raw → /wiki 3-layer system (with concrete file-layout example), save-after-good-answers, index.md + log.md for any project &gt; 1 week, "brilliant intern on a short leash" workflow loop (load context → 2-3 options → pick → test → commit → repeat), and the "structure as HTML" output trick. Includes Asi-specific habit-by-habit mapping table (what he already does, what to start), and 5 copy-paste prompts.</td></tr>
 <tr><td>2026-05-30 (debouncing)</td><td>Added debouncing subsection to 14.2 from reel DY79qxIvkku — fix for AI-default "DB query per keystroke" pattern. 8-line React hook + TanStack Query integration + 3 timing values by use case (150/300/500-800ms). Also acknowledged Layer 12 reel (DY7iptdRsB0) as re-share of Sentry coverage in 8.6/8.9.</td></tr>
 <tr><td>2026-05-30 (UX Part 9)</td><td>Added Section 9.5 — Partial states &amp; graceful degradation (Part 9 of UX series, reel DY-IhhSBV9b). Each screen section loads/fails independently. Per-section <code>Suspense</code> + <code>ErrorBoundary</code> pattern. Includes Next.js + React 19 implementation snippet + TanStack Query alternative + grep patterns for anti-patterns + decision rule. UX series now 8/9: Parts 1, 2, 3, 5, 6, 7, 8, 9 documented — only Part 4 missing.</td></tr>
 <tr><td>2026-05-30 (CI/CD ladder)</td><td>Added Section 8.9 — CI/CD maturity ladder (5 rungs from "solo no users" → "Sentry + smoke tests" → "real staging" → "Infrastructure as Code with Terraform" → "canary + feature flags with GrowthBook/LaunchDarkly"). From IG reel DYh_2F6j2Jb. Includes Asi-specific placement guidance (current bots = rung 0-1, client projects should be rung 1-2 minimum, big B2B clients = rung 3+).</td></tr>
@@ -4112,6 +4127,244 @@ Don&rsquo;t change code. Just the audit.</code></pre>
   <li>Don't break the styling — the CSS is inlined in <code>&lt;style&gt;</code>. If you add new structural elements (e.g., a new card type), add the CSS rule too.</li>
 </ul>
 </details>
+
+</div>
+</section>
+
+<section class="major" id="ai-workflow">
+<h2>17. Working with AI coding agents — the 7 Karpathy habits</h2>
+<div class="section-body">
+
+<p>Source: X article by <a href="https://x.com/scottybeamio/status/2059998232168571039">@scottybeamio</a> (2026-05-28, 240K views) summarizing Andrej Karpathy&rsquo;s system for working with AI coding agents. Karpathy: OpenAI co-founder, ex-head of AI at Tesla, Stanford. The article&rsquo;s thesis hits hard: <strong>the gap between people who get great output from AI and people who don&rsquo;t is not prompt skill — it&rsquo;s the infrastructure around the prompt.</strong></p>
+
+<div class="note">
+<strong>Why this belongs here, at the end:</strong> this section is meta — it&rsquo;s about <em>how Asi uses Claude Code itself</em>, not what to build with it. Belongs to <strong>Part VIII (Operational Knowledge)</strong> alongside Section 12 (bot patterns) and Section 13 (reusable prompts). Placed at the end because it was added late, but read it before anything else: it changes how you read the rest of the doc.
+</div>
+
+<h3>17.1 The 7 habits (full breakdown)</h3>
+
+<h4>Habit 1 — Stop tweaking prompts. Add context.</h4>
+<p>The "prompt engineering guru" industry says: learn the right magic incantation and the model obeys. Karpathy: this is wrong. <strong>The reason people iterate 100 times and still get bad output is missing context, not bad wording.</strong></p>
+<p>The formula:</p>
+<ul>
+  <li>Write a standard, clear request — no "act as an expert" theatrics.</li>
+  <li>Always include a <strong>concrete example</strong> of what good output looks like.</li>
+  <li>Paste the <strong>full</strong> error message or full background — never a trimmed snippet. "I cut it to save context window" → the model fills the gap by guessing → guesses wrong → you blame the model.</li>
+  <li>When the model can&rsquo;t see something, it confabulates. Don&rsquo;t make it confabulate.</li>
+</ul>
+
+<h4>Habit 2 — Your CLAUDE.md is probably garbage. Fix it.</h4>
+<p>If you copied it from someone else&rsquo;s template or let Claude write it for itself, it&rsquo;s not actually working for you. Karpathy&rsquo;s 5-item requirement for a working CLAUDE.md:</p>
+<ol>
+  <li><strong>Who you are</strong> (background, role, what kind of problems you bring).</li>
+  <li><strong>What the project is</strong> (general frame only — don&rsquo;t over-specify).</li>
+  <li><strong>What NOT to touch</strong> (files / patterns / paths that are off-limits).</li>
+  <li><strong>File naming conventions</strong> (so generated files don&rsquo;t look like alien artifacts).</li>
+  <li><strong>How to format responses</strong> (concise? bullets? markdown? Hebrew? code-first?).</li>
+</ol>
+<p><strong>If you only use browser AI (Claude.ai, ChatGPT)</strong> — same logic. Set a pinned brief / custom instructions covering these 5.</p>
+
+<h4>Habit 3 — Build a 3-layer system. Stop restarting from zero.</h4>
+<p>Karpathy&rsquo;s actual structure inside any active project:</p>
+<table>
+<tr><th>Layer</th><th>What it is</th><th>Who writes it</th></tr>
+<tr><td><code>/raw</code></td><td>Source material dumped in as-is — API docs, PDFs, screenshots, transcripts, error logs</td><td>You (raw dumping, no formatting)</td></tr>
+<tr><td><code>/wiki</code></td><td>Structured pages that summarize and connect what&rsquo;s in <code>/raw</code></td><td>The model (you instruct it to process <code>/raw</code> → <code>/wiki</code>)</td></tr>
+<tr><td><code>CLAUDE.md</code></td><td>Standing operating principles (the 5-item brief from Habit 2)</td><td>You</td></tr>
+</table>
+<p>New source arrives → drop in <code>/raw</code> → tell the model "process this." Saved time per day: ~30 min, compounding. If your project lives longer than 2 days and you&rsquo;re re-explaining everything in every new session, you don&rsquo;t have a workflow — you have a loop.</p>
+
+<h4>Habit 4 — After every strong answer, save it permanently.</h4>
+<p>The default habit kills long-term productivity: get a great response → copy result → close tab → forget. Karpathy&rsquo;s rule: after every valuable response, tell the model:</p>
+<blockquote>"Save this as a permanent page: <code>wiki/topic/.md</code>"</blockquote>
+<p>Then periodically <strong>audit your wiki</strong> for duplicates, conflicts, outdated info. Skip this and your best AI outputs drown in chat history; you&rsquo;ll spend hours re-solving things you already solved.</p>
+
+<h4>Habit 5 — Any project lasting > 1 week needs <code>index.md</code> + <code>log.md</code>.</h4>
+<p>Two files, two purposes:</p>
+<table>
+<tr><th>File</th><th>Purpose</th><th>Format</th></tr>
+<tr><td><code>index.md</code></td><td>A map of everything that exists in the project</td><td>List of files + 1-line description per file</td></tr>
+<tr><td><code>log.md</code></td><td>Running changelog of what you did when</td><td><code>date | type | description</code><br>e.g. <code>2026-05-28 | summary | customer interview breakdown</code></td></tr>
+</table>
+<p>If you vibe-code 1–2 hours a day for 2 weeks, you genuinely won&rsquo;t remember what you built on day 3. These two files are your memory layer.</p>
+
+<h4>Habit 6 — AI is a brilliant intern with no taste. Keep it on a short leash.</h4>
+<p>Karpathy&rsquo;s framing: AI agents are <em>"superpowered interns with massive knowledge, who constantly hallucinate and have zero taste for code."</em> The working loop:</p>
+<ol>
+  <li>Load full context (CLAUDE.md, /wiki, /raw — everything relevant).</li>
+  <li>Ask for <strong>2–3 options for the next small step only</strong>.</li>
+  <li>Pick one.</li>
+  <li>Evaluate. Test. Commit.</li>
+  <li>Repeat from step 2.</li>
+</ol>
+<p><strong>Never ask it to do everything in one prompt.</strong> That&rsquo;s how you get 500 lines of undebuggable mess. Smaller commits = recoverable mistakes. Bigger commits = ratcheting toward chaos.</p>
+
+<h4>Habit 7 — The 1-sentence HTML trick for research prompts.</h4>
+<p>Add this to the end of any analysis / research / breakdown prompt:</p>
+<div class="copy-block">
+<pre><code>Structure your final response as a self-contained HTML file.</code></pre>
+</div>
+<p>AI models render anything into clean, navigable HTML in seconds. Reading time drops dramatically. Costs one sentence; benefit is enormous on long analyses.</p>
+
+<h3>17.2 What this means for Asi specifically</h3>
+
+<p>This is meta-advice about <em>using</em> Claude Code. Mapping each habit to what Asi currently does (or doesn&rsquo;t):</p>
+
+<table>
+<tr><th>Habit</th><th>Current state for Asi</th><th>Recommended action</th></tr>
+<tr>
+  <td><strong>1.</strong> Context, not prompts</td>
+  <td>Asi already does this well — sends voice messages with full context, reels with full transcripts, asks "verify this exists" with the actual URL.</td>
+  <td>Keep doing what you do. The voice-message-with-context habit is exactly right.</td>
+</tr>
+<tr>
+  <td><strong>2.</strong> Real CLAUDE.md</td>
+  <td>Multiple CLAUDE.md files exist across projects (in <code>~/10mil/</code>, project repos, etc.) but most pre-date this 5-item framework.</td>
+  <td>Audit each active project&rsquo;s CLAUDE.md against the 5 items. Bot projects probably already cover "what not to touch" and "file naming." Client projects likely lack "how to format responses." Spend 15 min per project rewriting.</td>
+</tr>
+<tr>
+  <td><strong>3.</strong> 3-layer system</td>
+  <td>This doc (asi_brain_shared) IS Asi&rsquo;s <code>/wiki</code> for security/code-quality knowledge. Memory files in <code>~/.claude/projects/-Users-asafbenatia-asibrain/memory/</code> are the per-session equivalent.</td>
+  <td>For client projects: add a <code>/raw</code> folder per project — drop client briefs, screenshots, emails. Generate per-project wiki pages as you go.</td>
+</tr>
+<tr>
+  <td><strong>4.</strong> Save permanently</td>
+  <td>This whole doc is exactly this behavior, applied to reel content. Working well.</td>
+  <td>Apply the same pattern to client-project sessions: at end of every strong session, ask Claude "save this approach to wiki/[client]/[topic].md".</td>
+</tr>
+<tr>
+  <td><strong>5.</strong> index.md + log.md</td>
+  <td>Trading-bot projects have ad-hoc logs (10mil docs, daily reports). Client projects probably don&rsquo;t have either.</td>
+  <td>Add both files to any client project lasting > 1 week. Asi&rsquo;s ~30 client projects: prioritize the active 5–10.</td>
+</tr>
+<tr>
+  <td><strong>6.</strong> Brilliant intern, short leash</td>
+  <td>Asi&rsquo;s natural workflow ("verify, suggest 2-3 approaches, I&rsquo;ll choose") matches this already.</td>
+  <td>Formalize when starting a new feature: explicitly ask for "2-3 options for the next step" before any code generation.</td>
+</tr>
+<tr>
+  <td><strong>7.</strong> HTML trick</td>
+  <td>Already evident — this entire doc started because Asi asked for HTML output of a security audit.</td>
+  <td>Make it a standing rule for any deep analysis. Add to your default prompt templates.</td>
+</tr>
+</table>
+
+<h3>17.3 The CLAUDE.md template (5-item, ready to adapt)</h3>
+
+<p>Copy this into a new <code>CLAUDE.md</code> for any project, fill in the brackets, commit to git.</p>
+
+<div class="copy-block">
+<pre><code># CLAUDE.md — [project name]
+
+## 1. Who I am
+[Your name, role, background relevant to this project. e.g.:
+Asaf (Asi). Freelance full-stack dev based in Be&rsquo;er Sheva.
+Strong in Next.js + Node + Python. Working on this project for [client]
+who is [non-technical / technical / etc.].]
+
+## 2. What this project is
+[1-2 sentence general frame. NOT a feature list.
+e.g.: A B2B inventory management tool for medical clinics.
+Multi-tenant (Section 5 of asi_brain_shared applies).
+Production deploy on Vercel + Supabase.]
+
+## 3. What not to touch
+- Don&rsquo;t modify files in /vendor/ or /generated/
+- Don&rsquo;t add new dependencies without asking — we&rsquo;re trying to keep bundle size down
+- Don&rsquo;t refactor [legacy file X] — it&rsquo;s scheduled for replacement
+- Don&rsquo;t touch database migrations without explicit approval
+- Don&rsquo;t change linting / formatting rules
+
+## 4. File naming conventions
+- Routes: kebab-case (/api/order-items, not orderItems)
+- React components: PascalCase (OrderCard.tsx)
+- Utility functions: camelCase (formatPrice.ts)
+- Test files: foo.test.ts (next to the file under test)
+- Markdown docs in /docs/: lowercase-with-dashes.md
+- DB tables: snake_case_plural (order_items, not orderItem)
+
+## 5. How to format responses to me
+- Be concise. No "I&rsquo;ll help you with that!" preambles.
+- Show diffs, not full file contents, when changing code.
+- For non-trivial decisions: give 2-3 options + your recommendation,
+  don&rsquo;t pick silently.
+- Hebrew is fine for chat; code/comments stay in English.
+- When suggesting external libraries: name the library, why it fits,
+  link to docs. Don&rsquo;t auto-install.
+
+## 6. Cross-references
+- For security audits: see https://nioasoft.github.io/asi_brain_shared/
+- For architecture decisions: same doc, Sections 5-7 and 15.
+- For deploy: Section 8.</code></pre>
+</div>
+
+<h3>17.4 The /raw → /wiki workflow (concrete example)</h3>
+
+<p>Say Asi takes on a new client project: "build a booking system for a clinic."</p>
+
+<div class="copy-block">
+<pre><code>project-root/
+├── CLAUDE.md                  ← the 5-item brief above
+├── docs/
+│   ├── raw/                   ← dump everything here
+│   │   ├── 2026-06-01-client-call-notes.md     ← your notes from kickoff
+│   │   ├── 2026-06-02-existing-system-screenshots/  ← screenshots
+│   │   ├── 2026-06-02-competitor-research.md   ← what similar systems do
+│   │   ├── 2026-06-03-client-email-thread.md   ← key client decisions
+│   │   └── api-spec-from-pms.pdf               ← integration target
+│   ├── wiki/                  ← model writes & maintains, you audit
+│   │   ├── booking-flow.md           ← decided UX flow
+│   │   ├── data-model.md             ← schema + reasoning
+│   │   ├── integration-pms.md        ← how we talk to client&rsquo;s PMS
+│   │   └── pricing-rules.md          ← business logic
+│   ├── index.md               ← map of /docs (Habit 5)
+│   └── log.md                 ← changelog (Habit 5)
+└── src/
+    └── ...</code></pre>
+</div>
+
+<p><strong>Workflow on a typical day:</strong></p>
+<ol>
+  <li>Open Claude Code in the project root. CLAUDE.md auto-loads.</li>
+  <li>New input arrives (client email, new screenshot, API doc) → drop in <code>/docs/raw/</code>.</li>
+  <li>Tell Claude: <em>"Process the new files in /docs/raw/ from today. Update /docs/wiki/ where relevant. Log changes to log.md."</em></li>
+  <li>For a feature: <em>"Based on /docs/wiki/booking-flow.md, propose 2-3 approaches for implementing the date picker. Recommend one. Don&rsquo;t write code yet."</em></li>
+  <li>You pick. Claude writes code. You test. Commit.</li>
+  <li>End of session: <em>"Summarize what we did today in log.md."</em></li>
+</ol>
+
+<p>After a month of this: when you reopen the project, you have CLAUDE.md (who/what/rules) + /wiki (decisions + reasoning) + log.md (history). New Claude session is up to speed in 30 seconds. No re-explaining.</p>
+
+<h3>17.5 Ready prompts (copy-paste, drop into any Claude session)</h3>
+
+<div class="copy-block">
+<pre><code># After getting a great answer:
+"Save this approach as a permanent page at wiki/[topic]/[name].md.
+Include: the problem, your reasoning, the final code/decision, and
+any links/sources I&rsquo;ll need later."
+
+# When starting a feature:
+"Before writing any code, look at /docs/wiki/[relevant-page].md and
+CLAUDE.md. Then propose 2-3 approaches for [the task]. For each:
+1-line summary, main tradeoff, your recommendation. I&rsquo;ll pick."
+
+# When the project gets re-opened after a break:
+"Read CLAUDE.md, /docs/index.md, the last 5 entries in /docs/log.md.
+Summarize the project&rsquo;s current state and what we left off on in
+&lt;200 words."
+
+# When auditing the wiki for rot (do this monthly):
+"Read every file in /docs/wiki/. Flag: duplicates, conflicts,
+anything that contradicts CLAUDE.md, anything where the &lsquo;decided&rsquo;
+approach no longer matches what&rsquo;s in /src/. Output a table:
+file | issue | severity | one-line fix."
+
+# For any research / analysis (Habit 7):
+"Structure your final response as a self-contained HTML file."</code></pre>
+</div>
+
+<h3>17.6 Source</h3>
+<p>X article by <a href="https://x.com/scottybeamio/status/2059998232168571039">@ScottyBeamIO</a>, published 2026-05-28, 240K views. The article cites Karpathy&rsquo;s public talks and posts but isn&rsquo;t a direct Karpathy quote — it&rsquo;s @scottybeamio&rsquo;s synthesis of Karpathy&rsquo;s system. Asi sent the URL on 2026-05-31; this document was extracted using a headless browser (the article isn&rsquo;t accessible via standard fetch tools).</p>
 
 </div>
 </section>
