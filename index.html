@@ -404,15 +404,15 @@
   <ol start="9">
     <li><a href="#ux-patterns">UX patterns that AI tools get wrong</a>
       <ol>
-        <li><a href="#ux-foundation">9.0 UI vs UX — the foundation (Part 1)</a></li>
-        <li><a href="#ux-four-states">9.0.5 The 4 states every screen must have (Part 2)</a></li>
-        <li><a href="#ux-patterns">9.1 Error states (Part 5)</a></li>
-        <li><a href="#ux-error-placement">9.1.5 Error placement — toast vs modal vs inline (Part 7)</a></li>
-        <li><a href="#ux-forms">9.2 Forms (Part 6)</a></li>
-        <li><a href="#ux-empty-states">9.3 Empty states (Part 8)</a></li>
-        <li><a href="#ux-loading">9.4 Loading patterns (Part 3)</a></li>
-        <li><a href="#ux-partial-states">9.5 Partial states &amp; graceful degradation (Part 9)</a></li>
-        <li><a href="#ux-patterns">9.6 Coming in future reels (placeholders)</a></li>
+        <li><a href="#ux-foundation">9.1 UI vs UX — the foundation (Part 1)</a></li>
+        <li><a href="#ux-four-states">9.2 The 4 states every screen must have (Part 2)</a></li>
+        <li><a href="#ux-patterns">9.3 Error states (Part 5)</a></li>
+        <li><a href="#ux-error-placement">9.4 Error placement — toast vs modal vs inline (Part 7)</a></li>
+        <li><a href="#ux-forms">9.5 Forms (Part 6)</a></li>
+        <li><a href="#ux-empty-states">9.6 Empty states (Part 8)</a></li>
+        <li><a href="#ux-loading">9.7 Loading patterns (Part 3)</a></li>
+        <li><a href="#ux-partial-states">9.8 Partial states &amp; graceful degradation (Part 9)</a></li>
+        <li><a href="#ux-patterns">9.9 Coming in future reels (placeholders)</a></li>
       </ol>
     </li>
   </ol>
@@ -2407,7 +2407,7 @@ Don&rsquo;t install yet. Just the plan.</code></pre>
 
 <p><strong>Relevance for Asi:</strong> when delivering Next.js client projects, these patterns are the difference between "the site works" and "the site feels professional." Most Claude Code / Cursor / GPT-built UIs ship with bad defaults; this list is the explicit asks you make to fix them.</p>
 
-<h3 id="ux-foundation">9.0 UI vs UX — the foundation (Part 1 — reel DYIHYJCIAeT)</h3>
+<h3 id="ux-foundation">9.1 UI vs UX — the foundation (Part 1 — reel DYIHYJCIAeT)</h3>
 
 <p>The series&rsquo; opening reel. The distinction is foundational and most developers conflate the two:</p>
 
@@ -2456,7 +2456,7 @@ Output: action_name | predictability | feedback | recoverability | trust | frict
 | overall_pass</code></pre>
 </div>
 
-<h3 id="ux-four-states">9.0.5 The 4 states every screen must have (Part 2 — reel DYXxwf-BZpp)</h3>
+<h3 id="ux-four-states">9.2 The 4 states every screen must have (Part 2 — reel DYXxwf-BZpp)</h3>
 
 <p>From the same series&rsquo; Part 2. The single most important framing for AI-built UIs: <strong>every screen has 4 distinct states, and AI tools only design one of them by default.</strong></p>
 
@@ -2494,7 +2494,7 @@ Output: action_name | predictability | feedback | recoverability | trust | frict
     — see Section 9.4 for which to use)
 [ ] Success — the designed UI with data. (Default — AI handles this fine.)
 [ ] Error — what shows if the fetch fails? Network down, 500 from backend,
-    validation failed, etc. (See Section 9.1.)
+    validation failed, etc. (See Section 9.3.)
 [ ] Empty — what shows if the fetch succeeds but returns no data?
     (See Section 9.3.)
 
@@ -2504,7 +2504,7 @@ error_state | empty_state | gaps_to_fix.
 Mark "MISSING" for any state that isn&rsquo;t explicitly handled in code.</code></pre>
 </div>
 
-<h3>9.1 Error states (Part 5 — reel DYr7cKLIQo6)</h3>
+<h3>9.3 Error states (Part 5 — reel DYr7cKLIQo6)</h3>
 
 <p>Unless you explicitly ask, AI-built apps tend to default to one of three bad patterns: raw stack traces dumped to the user, vague "Something went wrong", or silent failures (button click → nothing happens).</p>
 
@@ -2571,7 +2571,7 @@ Don't fix anything yet — produce a numbered list of locations + proposed messa
 strings, then I'll review and you'll implement.</code></pre>
 </div>
 
-<h3 id="ux-error-placement">9.1.5 Error placement — toast vs modal vs inline (Part 7 — reel DY0IImqxNQ0)</h3>
+<h3 id="ux-error-placement">9.4 Error placement — toast vs modal vs inline (Part 7 — reel DY0IImqxNQ0)</h3>
 
 <p>The companion to 9.1. Even a great error message in the wrong place is invisible. Three placements, each for a specific use case — getting this wrong is a common AI default.</p>
 
@@ -2635,7 +2635,7 @@ strings, then I'll review and you'll implement.</code></pre>
 Don&rsquo;t change code. Just the audit.</code></pre>
 </div>
 
-<h3 id="ux-forms">9.2 Forms (Part 6 — reel DYyzrdpIixM)</h3>
+<h3 id="ux-forms">9.5 Forms (Part 6 — reel DYyzrdpIixM)</h3>
 
 <p>The reel framed it: <em>"Nobody likes filling out forms."</em> Six concrete rules to reduce friction. Same series as 10.1 (Error states).</p>
 
@@ -2686,10 +2686,10 @@ grep -rEn '<input\b' --include="*.tsx" --include="*.jsx" . | grep -v 'autocomple
 [ ] Logged-in user's known data is pre-filled (email, name)
 [ ] Formatting forgiving: phone numbers, credit cards, dates parsed and
     normalized server-side, not rejected client-side for format
-[ ] Submit shows loading state within 200ms (see Section 9.1)
+[ ] Submit shows loading state within 200ms (see Section 9.3)
 [ ] On success: explicit confirmation OR redirect
 [ ] On server error: inline error near the field, plus toast for system errors
-    (see Section 9.1 error rules)</code></pre>
+    (see Section 9.3 error rules)</code></pre>
 </div>
 
 <h4>Forms-audit prompt</h4>
@@ -2711,7 +2711,7 @@ For each form file, output:
 Don't refactor anything yet. Just the audit table.</code></pre>
 </div>
 
-<h3 id="ux-empty-states">9.3 Empty states (Part 8 — reel DY5PkUjyhMv)</h3>
+<h3 id="ux-empty-states">9.6 Empty states (Part 8 — reel DY5PkUjyhMv)</h3>
 
 <p>The reel framed it well: <em>"As designers and developers we like to think about new features. But the empty state is often what your user sees first. Let's make a good impression."</em></p>
 
@@ -2809,7 +2809,7 @@ has_echo, has_way_forward, achievement_treatment, severity, fix}.
 Don't fix anything yet. Just the audit.</code></pre>
 </div>
 
-<h3 id="ux-loading">9.4 Loading patterns (Part 3 — reel DYcbCoiIKK1)</h3>
+<h3 id="ux-loading">9.7 Loading patterns (Part 3 — reel DYcbCoiIKK1)</h3>
 
 <p>Each loading indicator triggers a different psychological response. Pick the right one for the context — getting this wrong makes users think the app is broken even when it&rsquo;s working.</p>
 
@@ -2901,7 +2901,7 @@ const [likes, addOptimisticLike] = useOptimistic(serverLikes, (state) =&gt; stat
 // On click: addOptimisticLike() first, then await server call</code></pre>
 </div>
 
-<h3 id="ux-partial-states">9.5 Partial states &amp; graceful degradation (Part 9 — reel DY-IhhSBV9b)</h3>
+<h3 id="ux-partial-states">9.8 Partial states &amp; graceful degradation (Part 9 — reel DY-IhhSBV9b)</h3>
 
 <p>The reel&rsquo;s framing nails it: <em>"When you order delivery from three different restaurants, do you expect all of them to show up at exactly the same time? And if one doesn&rsquo;t show up, do you throw all the food away? Of course not."</em></p>
 
@@ -3013,21 +3013,21 @@ grep -rEn '&lt;Suspense' --include="*.tsx" -c . | sort -t: -k2 -n
   <li><strong>Default for new screens with 3+ data sources</strong> → graceful degradation. It&rsquo;s rarely the wrong call.</li>
 </ul>
 
-<h3>9.6 Coming in future reels (placeholders)</h3>
+<h3>9.9 Coming in future reels (placeholders)</h3>
 
 <p>Same series promises more parts. Asi will send when found.</p>
 
 <table>
 <tr><th>Part</th><th>Topic</th><th>Status</th></tr>
-<tr><td><strong>1</strong></td><td><strong>UI vs UX — the foundation</strong></td><td><span class="pill ok">documented (9.0)</span></td></tr>
-<tr><td><strong>2</strong></td><td><strong>The 4 states + loading history</strong></td><td><span class="pill ok">documented (9.0.5)</span></td></tr>
-<tr><td><strong>3</strong></td><td><strong>Loading patterns</strong></td><td><span class="pill ok">documented (9.4)</span></td></tr>
+<tr><td><strong>1</strong></td><td><strong>UI vs UX — the foundation</strong></td><td><span class="pill ok">documented (9.6)</span></td></tr>
+<tr><td><strong>2</strong></td><td><strong>The 4 states + loading history</strong></td><td><span class="pill ok">documented (9.8)</span></td></tr>
+<tr><td><strong>3</strong></td><td><strong>Loading patterns</strong></td><td><span class="pill ok">documented (9.7)</span></td></tr>
 <tr><td>4</td><td>(unknown — possibly success states)</td><td><span class="pill warn">missed</span></td></tr>
-<tr><td><strong>5</strong></td><td><strong>Error states</strong></td><td><span class="pill ok">documented (9.1)</span></td></tr>
-<tr><td><strong>6</strong></td><td><strong>Forms</strong></td><td><span class="pill ok">documented (9.2)</span></td></tr>
-<tr><td><strong>7</strong></td><td><strong>Error placement (toast vs modal vs inline)</strong></td><td><span class="pill ok">documented (9.1.5)</span></td></tr>
-<tr><td><strong>8</strong></td><td><strong>Empty states</strong></td><td><span class="pill ok">documented (9.3)</span></td></tr>
-<tr><td><strong>9</strong></td><td><strong>Partial states &amp; graceful degradation</strong></td><td><span class="pill ok">documented (9.5)</span></td></tr>
+<tr><td><strong>5</strong></td><td><strong>Error states</strong></td><td><span class="pill ok">documented (9.6)</span></td></tr>
+<tr><td><strong>6</strong></td><td><strong>Forms</strong></td><td><span class="pill ok">documented (9.8)</span></td></tr>
+<tr><td><strong>7</strong></td><td><strong>Error placement (toast vs modal vs inline)</strong></td><td><span class="pill ok">documented (9.7)</span></td></tr>
+<tr><td><strong>8</strong></td><td><strong>Empty states</strong></td><td><span class="pill ok">documented (9.6)</span></td></tr>
+<tr><td><strong>9</strong></td><td><strong>Partial states &amp; graceful degradation</strong></td><td><span class="pill ok">documented (9.8)</span></td></tr>
 <tr><td>10+</td><td>Inline spinners deep-dive (teased in reel 3 — "different kinds, psychology")</td><td><span class="pill info">teased, watch for it</span></td></tr>
 </table>
 
@@ -3096,6 +3096,23 @@ python main.py https://example.com --he  # Hebrew output</code></pre>
 
 <h3 id="tools-watching">10.3 Tools to evaluate</h3>
 
+<p>Tools surfaced via reels / articles. Pre-installation status at a glance:</p>
+
+<table>
+<tr><th>Tool</th><th>Status</th><th>Use case</th></tr>
+<tr><td><strong>Browser Use</strong></td><td><span class="pill ok">verified, install when needed</span></td><td>AI agent drives real Chrome. 93K stars. Lead gen, competitor monitoring, REST-bypass scraping.</td></tr>
+<tr><td><strong>OpenOSINT</strong></td><td><span class="pill ok">verified</span> <span class="pill warn">authorized use only</span></td><td>14-tool OSINT autonomous agent via MCP. For pre-pitch reconnaissance on your OWN clients only.</td></tr>
+<tr><td><strong>PocketBase</strong></td><td><span class="pill ok">verified</span></td><td>Single-binary backend (SQLite + auth + storage + admin + REST + realtime). For self-hosted client deliveries or MVPs.</td></tr>
+<tr><td><strong>Dub.co</strong></td><td><span class="pill ok">verified</span></td><td>Open-source Bitly. Branded short links for client marketing campaigns.</td></tr>
+<tr><td><strong>ScrapeGraphAI</strong></td><td><span class="pill warn">evaluate before production</span></td><td>LLM-based scraper (MIT). Plain-English data extraction. Pairs with Cloak Browser.</td></tr>
+<tr><td><strong>Cloak Browser</strong></td><td><span class="pill warn">unverified, sandbox first</span></td><td>Patched Chromium that passes bot detection. Useful if Bitunix/Binance API stays blocked.</td></tr>
+<tr><td><strong>"Anthropic Cybersecurity Skills"</strong></td><td><span class="pill warn">community project, sample first</span></td><td>754 cyber workflows for AI agents. NOT actually by Anthropic — community (mukul975).</td></tr>
+<tr><td><strong>LLM scaffolding pattern</strong></td><td><span class="pill info">principle, not a tool</span></td><td>Wrap any LLM call with JSON schema + retry + structured output. 20-40% stability gain.</td></tr>
+<tr><td><strong>Giscard / LLM Guard / Rebuff</strong></td><td><span class="pill info">awareness only — re-evaluate when shipping LLM product</span></td><td>3 LLM-app security tools. Not needed today (no public-facing LLM endpoints in Asi&rsquo;s stack).</td></tr>
+</table>
+
+<p>Full details on each tool below:</p>
+
 <h4>Cloak Browser <span class="pill warn">unverified</span></h4>
 <p><strong>What:</strong> Custom Chromium build with 16 patches compiled into the source itself (not runtime patches like Playwright-stealth). Drop-in replacement for Playwright.</p>
 <p><strong>Why interesting:</strong> Reportedly passes reCAPTCHA v3 with score 0.9 (human-equivalent), Cloudflare Turnstile, fingerprint.js, 14/14 browserscan stealth tests. Could re-open scraping for venues that block your REST API (Bitunix 403, Binance 418-ban).</p>
@@ -3117,11 +3134,10 @@ python main.py https://example.com --he  # Hebrew output</code></pre>
 </ul>
 <p>None of these are needed today for the trading bots (no public LLM endpoint). Re-evaluate when you ship an AI-facing client project.</p>
 
-<h4>Forge 8B + scaffolding pattern <span class="pill info">takeaway only</span></h4>
-<p>YouTube short on 2026-05-23 claimed an 8B local model called "Forge" beats Claude on agent tasks when wrapped in scaffolding (53% raw → 99% with guardrails + validation + retries + forced structured output; Claude at 87% unguarded).</p>
-<p><strong>Specific claim flagged as clickbait</strong> — unfair comparison (Forge with 4 layers vs Claude raw), no specific benchmark named. <strong>But the general lesson is correct:</strong> when you call an LLM inside a pipeline (e.g., signal filter, news analysis), wrapping with these layers usually gives 20–40% stability gain without changing the model:</p>
+<h4>LLM scaffolding pattern (when you call an LLM inside a pipeline) <span class="pill info">general principle</span></h4>
+<p>When you call an LLM from inside code (signal filter, news analysis, classification) — wrapping with these layers usually gives 20–40% stability gain without changing the model:</p>
 <ul>
-  <li>JSON Schema validation on every output</li>
+  <li>JSON Schema validation on every output (Zod / pydantic / jsonschema)</li>
   <li>Retry on parse failure (3 attempts with feedback)</li>
   <li>Structured output mode (<code>response_format: json_object</code> if supported)</li>
 </ul>
@@ -3562,7 +3578,7 @@ npx skills add https://github.com/Leonxlnx/taste-skill</code></pre>
 
 <p>Prompts we've crafted in past sessions, ready to paste into a new Claude session.</p>
 
-<h3>5.1 Independent fact-checker for security claims in social media</h3>
+<h3>13.1 Independent fact-checker for security claims in social media</h3>
 <p><strong>Use when:</strong> a reel/short makes a security claim and you want a grounded second opinion.</p>
 <div class="copy-block">
 <pre><code>Fact-check the following security claims from a software engineer's social media post.
@@ -3578,7 +3594,7 @@ Claims:
 Output &le; 300 words. Cite OWASP IDs/items where applicable.</code></pre>
 </div>
 
-<h3>5.2 Run the runbook on this project</h3>
+<h3>13.2 Run the runbook on this project</h3>
 <p><strong>Use when:</strong> you've opened Claude Code in a project directory and want the full audit.</p>
 <div class="copy-block">
 <pre><code>You are an auditing security reviewer. Open the file at
@@ -3594,7 +3610,7 @@ After the report, propose the top 3 fixes ranked by severity.
 Do not make any code changes yet — only report.</code></pre>
 </div>
 
-<h3>5.3 Cloak Browser evaluation</h3>
+<h3>13.3 Cloak Browser evaluation</h3>
 <p><strong>Use when:</strong> you want to seriously evaluate the Cloak Browser tool.</p>
 <div class="copy-block">
 <pre><code>Find the "Cloak Browser" project on GitHub. Then:
@@ -3609,7 +3625,7 @@ If GO-WITH-SANDBOX, also produce a Dockerfile that runs Cloak Browser with no
 network access except to a configurable allowlist of domains.</code></pre>
 </div>
 
-<h3>5.4 Add LLM scaffolding to a bot</h3>
+<h3>13.4 Add LLM scaffolding to a bot</h3>
 <p><strong>Use when:</strong> you have a Python script that calls an LLM and you want to harden it.</p>
 <div class="copy-block">
 <pre><code>I have a Python function that calls an LLM and parses the output as JSON.
@@ -3626,7 +3642,7 @@ Wrap it with the standard scaffolding pattern:
 Don't change my prompt logic — only the wrapper.</code></pre>
 </div>
 
-<h3>5.5 Pre-deploy checklist for a client project</h3>
+<h3>13.5 Pre-deploy checklist for a client project</h3>
 <p><strong>Use when:</strong> about to deliver a client Next.js project.</p>
 <div class="copy-block">
 <pre><code>This project is about to be delivered to a paying client. Run a pre-deploy review:
@@ -3683,9 +3699,6 @@ For each finding give file:line and a 1-line fix. Don't write code yet.</code></
   <li><code>/security-review</code> to find auth flaws, exposed data, exploitable patterns.</li>
   <li>Ask Claude to implement the suggested changes.</li>
 </ol>
-
-<h4>Promo for unnamed security-audit toolkit <span class="meta">(IG · 2026-05-23 · reel DYqMtIhsxUC)</span></h4>
-<p><span class="pill warn">skip</span> Tool not named clearly. Claims 51 skills + 15 slash commands + 500+ vulnerability patterns. <strong>Not recommended</strong> — Asi already has <code>/security-review</code> built-in and a custom scanner. Only add a third-party security tool if a specific gap is identified.</p>
 
 <h4>API security: 3 things to fix today <span class="meta">(IG · 2026-05-02 · @jordan_kodes · DXz5iIwxiuF)</span></h4>
 <p>See <a href="#api-claims">Section 3 — OWASP-grounded API security claims</a> for the fact-checked breakdown.</p>
@@ -3945,12 +3958,6 @@ function SearchBox() {
 <h4>Giscard / LLM Guard / Rebuff <span class="meta">(IG · 2026-05-17, re-sent 2026-05-29 · reel DXQiWMVDfXg)</span></h4>
 <p>3 LLM-app security tools. Originally captured 2026-05-17; Asi re-shared the same reel on 2026-05-29 (already in the doc). See <a href="#tools-watching">Section 10.3 — Tools to evaluate</a> for the full breakdown.</p>
 
-<h4>"Faction" — the 80% wall (service ad) <span class="meta">(IG · 2026-05-30 · reel DVrifdkj9R2)</span></h4>
-<p>Ad for a "vibe code finish" service. Skipped as a tool, but the core insight is real: AI generates code that works in the happy path, fails on production edge cases. The whole doc essentially exists to fight this gap (sections 2 / 4 / 8 / 9 in particular). Worth noting; nothing added to the doc itself.</p>
-
-<h4>Forge 8B + scaffolding pattern <span class="meta">(YouTube short · 2026-05-23 · t67C2WeDNvI)</span></h4>
-<p>See <a href="#tools-watching">Section 10.3 — Tools to evaluate</a>.</p>
-
 <h4>3 Claude Code design skills for frontend <span class="meta">(IG · 2026-05-09 · reel DX_q_jqoLWN)</span></h4>
 <p>Emil Kowalski (motion) + Impeccable (<code>/polish</code>) + Taste (anti-AI-slop). See <a href="#design-skills">Section 11 — Frontend design skills</a> for the full breakdown with install links.</p>
 
@@ -3985,12 +3992,6 @@ function SearchBox() {
 <h4>"No DevOps" stack: Sentry + Upstash + Railway <span class="meta">(IG · 2026-05-29 · reel DY7OKr4xruV)</span></h4>
 <p>3 tools, ~1 hour setup, replaces a DevOps engineer for most client projects: Sentry (error tracking), Upstash (Redis + rate limit), Railway (background jobs / persistent compute). Full 3-tool table + 1-hour checklist + audit prompt at <a href="#deploy-environments">Section 8.6</a>.</p>
 
-<h4>Layer 5 — Staging (push-to-main = production) <span class="meta">(IG · 2026-05-30 · reel DYpc9DkghA8 · "13-layer prod stack" series)</span></h4>
-<p>Same content as already documented in <a href="#deploy-environments">Section 8.1 — The 3-environment setup</a> (from earlier reel DYuVqaeRi8q). Push-to-main = production is the trap; staging branches + preview deploys are the fix. Marked as <strong>re-share</strong>; nothing new added.</p>
-
-<h4>Layer 12 — Error tracking and logs <span class="meta">(IG · 2026-05-30 · reel DY7iptdRsB0 · "13-layer prod stack" series)</span></h4>
-<p>Sentry catches every unhandled exception. Users hit white screen → leave silently → you think everything is fine because no one complains. <strong>Already documented</strong> in <a href="#deploy-environments">Section 8.6</a> ("No DevOps" stack: Sentry + Upstash + Railway) and as Rung 1 of <a href="#deploy-environments">Section 8.9</a> (CI/CD maturity ladder). The framing line from this reel worth saving: <em>"The difference between a demo and a production app isn&rsquo;t the features. It&rsquo;s observability."</em></p>
-
 <h4>When to graduate from Vercel (and where to) <span class="meta">(IG · 2026-05-30 · reel DYzc-WUAOlA)</span></h4>
 <p>10-second Hobby timeout = signal you&rsquo;ve outgrown Vercel for this workload. Options: Railway (best successor for long-running), Render (+ managed Postgres), Fly.io (global edge). Split-stack pattern: keep frontend on Vercel, move backend/workers to Railway. ASCII diagram + 6-criteria decision tree at <a href="#deploy-environments">Section 8.8</a>.</p>
 
@@ -4006,19 +4007,19 @@ function SearchBox() {
 <h3>14.7 UX patterns</h3>
 
 <h4>UI vs UX — the foundation <span class="meta">(IG · 2026-05-30 · reel DYIHYJCIAeT · "Building with good UX" Part 1)</span></h4>
-<p>UI = looks; UX = feels. AI tools build the happy path. The 5 UX dimensions to audit: predictability, feedback, recoverability, trust, friction. Full breakdown + UX self-test prompt at <a href="#ux-foundation">Section 9.0 — UI vs UX</a>.</p>
+<p>UI = looks; UX = feels. AI tools build the happy path. The 5 UX dimensions to audit: predictability, feedback, recoverability, trust, friction. Full breakdown + UX self-test prompt at <a href="#ux-foundation">Section 9.1 — UI vs UX</a>.</p>
 
 <h4>The 4 states + loading history <span class="meta">(IG · 2026-05-30 · reel DYXxwf-BZpp · "Building with good UX" Part 2)</span></h4>
-<p>Every screen has 4 states: Loading / Success / Error / Empty. AI tools only build "Success" by default. Plus a brief loading-indicator history from 1984 watch cursor → modern skeleton screens. Per-screen pre-deploy check + cross-references to all 4 states&rsquo; sections at <a href="#ux-four-states">Section 9.0.5</a>.</p>
+<p>Every screen has 4 states: Loading / Success / Error / Empty. AI tools only build "Success" by default. Plus a brief loading-indicator history from 1984 watch cursor → modern skeleton screens. Per-screen pre-deploy check + cross-references to all 4 states&rsquo; sections at <a href="#ux-four-states">Section 9.2</a>.</p>
 
-<h4>Loading patterns — skeleton vs spinner vs progress vs optimistic <span class="meta">(IG · 2026-05-30, re-shared same day · reel DYcbCoiIKK1 · "Building with good UX" Part 3)</span></h4>
-<p>4 patterns, each with a specific use case. Spinner on a file upload = users think it&rsquo;s stuck. Skeleton for buttons = wrong scale. Optimistic UI for payments = angry users on failure. Full decision tree + Next.js implementation snippets at <a href="#ux-loading">Section 9.4 — Loading patterns</a>. (Re-shared — already documented.)</p>
+<h4>Loading patterns — skeleton vs spinner vs progress vs optimistic <span class="meta">(IG · 2026-05-30 · reel DYcbCoiIKK1 · "Building with good UX" Part 3)</span></h4>
+<p>4 patterns, each with a specific use case. Spinner on a file upload = users think it&rsquo;s stuck. Skeleton for buttons = wrong scale. Optimistic UI for payments = angry users on failure. Full decision tree + Next.js implementation snippets at <a href="#ux-loading">Section 9.7 — Loading patterns</a>.</p>
 
-<h4>Error states — what AI tools build wrong by default <span class="meta">(IG · 2026-05-25, re-shared 2026-05-30 · reel DYr7cKLIQo6 · "Building with good UX" Part 5)</span></h4>
-<p>3 things every error message must do: <strong>what happened, why, what's next</strong>. Don't dump stack traces (security risk too). Don't say "Something went wrong" (vague, breaks trust at payment time). Don't fail silently (worst — AI tool default). Full anti-pattern table + 8-line implementation checklist + ready prompt to audit existing code. See <a href="#ux-patterns">Section 9 — UX patterns</a>. (Re-shared by Asi on 2026-05-30 — already documented.)</p>
+<h4>Error states — what AI tools build wrong by default <span class="meta">(IG · 2026-05-25 · reel DYr7cKLIQo6 · "Building with good UX" Part 5)</span></h4>
+<p>3 things every error message must do: <strong>what happened, why, what's next</strong>. Don't dump stack traces. Don't say "Something went wrong" (vague, breaks trust at payment time). Don't fail silently. Full anti-pattern table + 8-line implementation checklist + audit prompt at <a href="#ux-patterns">Section 9.3 — Error states</a>.</p>
 
 <h4>Error placement — toast vs modal vs inline <span class="meta">(IG · 2026-05-30 · reel DY0IImqxNQ0 · "Building with good UX" Part 7)</span></h4>
-<p>3 placements + when each. Rule: the closer the error to what went wrong, the better. Common AI mistake: toast for blocking errors (user misses it). Full placement table + 5 AI placement mistakes + audit prompt at <a href="#ux-error-placement">Section 9.1.5 — Error placement</a>.</p>
+<p>3 placements + when each. Rule: the closer the error to what went wrong, the better. Common AI mistake: toast for blocking errors (user misses it). Full placement table + 5 AI placement mistakes + audit prompt at <a href="#ux-error-placement">Section 9.4 — Error placement</a>.</p>
 
 <h4>Caching for slow API / DB calls <span class="meta">(IG · 2026-05-29 · reel DY257b6xGCE)</span></h4>
 <p>General lesson: cache expensive/repeat calls. Reel recommends <strong>Convex Action Cache</strong> — solid component for any Convex project. Asi's <em>current</em> default stack is Next.js + Supabase, but Convex is a legitimate choice for new projects when it fits. For Supabase-stack equivalents: built-in <code>fetch()</code> revalidation, Upstash Redis, TanStack Query, materialized views. Full mapping + audit prompt at <a href="#reels">Section 14.2 — Performance &amp; scaling (old reel index location)</a>.</p>
@@ -4030,16 +4031,16 @@ function SearchBox() {
 <p>AI default: search input fires a DB query on every keystroke. Fix: debounce, wait 300ms after last keystroke before firing. Includes 8-line React hook (<code>useDebouncedValue</code>) + TanStack Query integration + the 3 timing values that matter (150ms / 300ms / 500-800ms by use case). Added inline to <a href="#reels">Section 14.2 — Performance &amp; scaling</a> (under Layer 11).</p>
 
 <h4>Empty states — first impression UX <span class="meta">(IG · 2026-05-29 · reel DY5PkUjyhMv · "Building with good UX" Part 8)</span></h4>
-<p>3 kinds of empty (first-time / no-results / achievement) — each needs different treatment. Good empty state tells WHY empty + WHAT to do next + doesn't feel broken. Includes per-page checklist + audit prompt. See <a href="#ux-empty-states">Section 9.3 — Empty states</a>.</p>
+<p>3 kinds of empty (first-time / no-results / achievement) — each needs different treatment. Good empty state tells WHY empty + WHAT to do next + doesn't feel broken. Includes per-page checklist + audit prompt. See <a href="#ux-empty-states">Section 9.6 — Empty states</a>.</p>
 
 <h4>Partial states &amp; graceful degradation <span class="meta">(IG · 2026-05-30 · reel DY-IhhSBV9b · "Building with good UX" Part 9)</span></h4>
-<p>Each section of a screen loads/fails on its own. Don&rsquo;t block the whole page on one slow fetch; don&rsquo;t error out the whole page on one failed fetch. Per-section <code>Suspense</code> + <code>ErrorBoundary</code>. React 19 / TanStack Query implementation snippets + grep patterns for anti-patterns + decision rule (3+ data sources → graceful by default) at <a href="#ux-partial-states">Section 9.5</a>.</p>
+<p>Each section of a screen loads/fails on its own. Don&rsquo;t block the whole page on one slow fetch; don&rsquo;t error out the whole page on one failed fetch. Per-section <code>Suspense</code> + <code>ErrorBoundary</code>. React 19 / TanStack Query implementation snippets + grep patterns for anti-patterns + decision rule (3+ data sources → graceful by default) at <a href="#ux-partial-states">Section 9.8</a>.</p>
 
 <h4>Empty states — 5 extra rules <span class="meta">(IG · 2026-05-30 · reel DXMgbFOsjFu)</span></h4>
 <p>Second reel on empty states. 5 additions to <a href="#ux-empty-states">Section 9.3</a>: use a tiny illustration; sound human not corporate; primary action not "refresh"; split filtered-out from error from no-results (4 kinds not 3); the empty state is your best onboarding moment — teach the feature before they have data.</p>
 
 <h4>Forms — 6 rules to reduce friction <span class="meta">(IG · 2026-05-29 · reel DYyzrdpIixM · "Building with good UX" Part 6)</span></h4>
-<p>Disabled-with-reason buttons, inline validation onBlur, character counts, pre-fill, live password requirements, forgiving formatting. 6 rules + grep patterns + 12-line per-form checklist + audit prompt. See <a href="#ux-forms">Section 9.2 — Forms</a>.</p>
+<p>Disabled-with-reason buttons, inline validation onBlur, character counts, pre-fill, live password requirements, forgiving formatting. 6 rules + grep patterns + 12-line per-form checklist + audit prompt. See <a href="#ux-forms">Section 9.5 — Forms</a>.</p>
 
 <h3>14.8 Architecture playbooks (system design reels)</h3>
 
@@ -4282,6 +4283,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-06-01 (cleanup pass)</td><td><strong>Doc hygiene per Asi&rsquo;s request — verify-quality-non-redundant standard now enforced.</strong> Section 9 renumbered to sequential 9.1-9.9 (was 9.0/9.0.5/9.1/9.1.5/9.2-9.6 — confusing). Section 13 renumbered (subsections were stuck at "5.1-5.5" from old restructure). Section 10.3 (Tools to evaluate) gained a top-of-section status table for quick scan. Section 14: deleted 5 worthless entries (Forge 8B clickbait, "Faction" service ad, unnamed-toolkit promo, Layer 5 / Layer 12 re-shares). Renamed Forge 8B in 10.3 to "LLM scaffolding pattern" — kept the useful principle, dropped the clickbait framing.</td></tr>
 <tr><td>2026-06-01 (UI/UX libraries + Wiki Layer deep dive)</td><td>Two additions: <strong>Section 11.5</strong> — 9 UI/UX inspiration libraries (Mobbin, PageFlows, lookup.design, pttrns, appshot.gallery, chamjo.design, darkmodedesign, neumorphism.io with a11y warning, codesandbox), with how-to-actually-use guidance integrated into the /raw → /wiki workflow. From X screenshot of @UiSavior. <strong>Section 17.6</strong> — The Wiki Layer deep dive: 3-folder structure (raw/wiki/instructions), Obsidian integration for visual knowledge graph, production-ready structuring-agent prompt with conflict/stub/audit policies, when-to-start-vs-skip table, 4 Asi-specific projects to apply it to. From X article by @bonsaixbt — Karpathy&rsquo;s wiki-layer 90% token savings.</td></tr>
 <tr><td>2026-05-31 (product analytics)</td><td>Added Section 8.10 — Product analytics (PostHog / Amplitude). From reel DY2zZvMsVzj. Includes the product-vs-site analytics distinction (Plausible answers "how many visitors"; PostHog answers "what % of users complete onboarding"), 3-tool comparison, minimum useful event set (~10 events not 100), weekly review checklist, Asi-specific guidance per project type, and a pre-delivery audit prompt.</td></tr>
 <tr><td>2026-05-31 (Karpathy 7 habits)</td><td>Added Section 17 — Working with AI coding agents (Karpathy&rsquo;s 7 habits). From an X article by @scottybeamio (article wasn&rsquo;t accessible via standard fetch — extracted with a headless browser script). The 7 habits cover: context over prompts, 5-item CLAUDE.md template (full template included), /raw → /wiki 3-layer system (with concrete file-layout example), save-after-good-answers, index.md + log.md for any project &gt; 1 week, "brilliant intern on a short leash" workflow loop (load context → 2-3 options → pick → test → commit → repeat), and the "structure as HTML" output trick. Includes Asi-specific habit-by-habit mapping table (what he already does, what to start), and 5 copy-paste prompts.</td></tr>
@@ -4296,10 +4298,10 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 <tr><td>2026-05-29 (post-restructure)</td><td>Added Section 8.6: "No DevOps" stack — Sentry (error tracking) + Upstash (Redis + rate-limit) + Railway (persistent compute). 1-hour setup checklist + audit prompt. From IG reel DY7OKr4xruV. Also noted that reel DXQiWMVDfXg (Giscard/LLM Guard/Rebuff) is a re-share of content already documented from 2026-05-17.</td></tr>
 <tr><td>2026-05-29 (RESTRUCTURE — bible-style)</td><td><strong>Per Asi's request: full document restructure.</strong> Sections reorganized chronological → topical, grouped into 9 Parts (Foundation / Security &amp; Compliance / Architecture Playbooks / Pre-Delivery Operations / UX Patterns / Tools &amp; Skills / Design / Operational Knowledge / Index). New numbering: Foundation (1) · Security: runbook (2), OWASP claims (3), Legal (4) · Architecture playbooks: Multi-tenancy (5), Payments (6), Feed (7) · Deployment (8) · UX (9) · Tools (10) · Design (11) · Bot patterns (12) · Prompts (13) · Reel index (14) · Changelog (15). All 41 H3 subsection numbers renumbered to match. All 27 cross-references between sections updated. TOC fully rebuilt with all subsections + Part dividers. Also added Section 8.5: Serverless Postgres + database branching (Neon) from IG reel DY1-cZaRlSD (when Neon vs Supabase + setup checklist + audit prompt).</td></tr>
 <tr><td>2026-05-29 (latest+6)</td><td>Added Section 14: Feed architecture (Instagram-style social feed) — 4-version progression from naive SQL query to fan-out-on-write to push/pull hybrid (celebrities pulled, normals pushed) to Redis-backed inboxes. Includes full architecture diagram, "when to skip this entirely" decision table, per-version implementation checklists, real-world variations (ML ranking, deletes, privacy), and audit prompt. From IG reel DYCbWHGD1r1. Also: fixed wording in Section 4.2 caching subsection — Convex Action Cache is a real choice for new projects, not "only if you're already on Convex" (Asi correctly pushed back on the original framing).</td></tr>
-<tr><td>2026-05-29 (latest+5)</td><td>Added Section 9.3 — Empty states (Part 8 of "Building with good UX", reel DY5PkUjyhMv): 3 kinds of empty (first-time / no-results / achievement), per-page checklist, audit prompt. Also added to Section 4.2: Caching for slow API/DB calls (reel DY257b6xGCE) — general lesson + Convex Action Cache (specific) + Next.js/Supabase equivalents table + caching audit prompt.</td></tr>
+<tr><td>2026-05-29 (latest+5)</td><td>Added Section 9.6 — Empty states (Part 8 of "Building with good UX", reel DY5PkUjyhMv): 3 kinds of empty (first-time / no-results / achievement), per-page checklist, audit prompt. Also added to Section 4.2: Caching for slow API/DB calls (reel DY257b6xGCE) — general lesson + Convex Action Cache (specific) + Next.js/Supabase equivalents table + caching audit prompt.</td></tr>
 <tr><td>2026-05-29 (latest+4)</td><td><strong>Added Section 13: Multi-tenancy architecture for SaaS / multi-org projects.</strong> From IG reel DY4jQHeR4Gb. Verified the 3 reel rules (tenant_id everywhere, RLS at DB level, indexes for actual access patterns) and extended with 6 critical additions the reel missed (tenant context routing patterns, FORCE ROW LEVEL SECURITY trap, PgBouncer/RLS gotcha, composite indexes, connection-pool partitioning, backup/restore boundaries). Includes 3 models comparison (single-DB shared-schema / schema-per-tenant / DB-per-tenant), pre-build 13-line checklist, retrofit 6-phase plan for live apps, and a Claude audit prompt. Per Asi's request: "clear instructions for big projects."</td></tr>
 <tr><td>2026-05-29 (latest+3)</td><td>Added to Section 3.3: OpenOSINT (14-tool autonomous OSINT agent via MCP server). Verified real per Asi's "check this" question. Includes 4 use cases for client work (pre-engagement recon, asset-exposure deliverable, personal monitoring) and prominent legal warnings (Israeli computer law, GDPR, CFAA — authorized targets only). From IG reel DY15Vh_h4Ji.</td></tr>
-<tr><td>2026-05-29 (latest+2)</td><td><strong>UX overhaul:</strong> all 13 sections are now <em>collapsible</em> — click the section header to expand or collapse. By default everything is collapsed; the TOC is the entry point. Internal links auto-open the target section and flash it briefly. "Expand all" / "Collapse all" buttons in the footer. Plus added Section 9.2 — Forms (Part 6 of "Building with good UX" series, reel DYyzrdpIixM): 6 rules to reduce form friction, grep patterns, per-form checklist, audit prompt.</td></tr>
+<tr><td>2026-05-29 (latest+2)</td><td><strong>UX overhaul:</strong> all 13 sections are now <em>collapsible</em> — click the section header to expand or collapse. By default everything is collapsed; the TOC is the entry point. Internal links auto-open the target section and flash it briefly. "Expand all" / "Collapse all" buttons in the footer. Plus added Section 9.5 — Forms (Part 6 of "Building with good UX" series, reel DYyzrdpIixM): 6 rules to reduce form friction, grep patterns, per-form checklist, audit prompt.</td></tr>
 <tr><td>2026-05-29 (latest+1)</td><td>Added to Section 3.3: Browser Use (Python AI browser automation, MIT, 93K+ GitHub stars). Verified real after Asi's "is this real?" question. From IG reel DY4wy9xSiN8. Includes install snippet + 4 Asi-specific use cases.</td></tr>
 <tr><td>2026-05-29 (latest)</td><td>Added Section 12: Payments architecture deep dive (Stripe — 4-version progression: naive → idempotency keys → immutable ledger → webhooks). Includes architecture diagram, 14-line pre-launch checklist, audit prompt for existing integrations. From IG reel DY1g56bk9_o. Also added to Section 4.2: "Layer 11 — Load balancing &amp; scaling failure modes" (DB connections, cold start stampede, external API rate limits) from reel DY5KQSsRpfz (same "13-layer prod stack" series as Layer 8/RLS).</td></tr>
 <tr><td>2026-05-29 (later)</td><td>Added to Section 3.1: Anthropic Security Guidance plugin — official 3-layer real-time security plugin for Claude Code (edit-time pattern match + post-turn model scan + commit-time deep scan). 157K installs. From IG reel DY2BIfqtIHD.</td></tr>
