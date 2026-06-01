@@ -436,6 +436,7 @@
         <li><a href="#design-skills">11.2 Impeccable</a></li>
         <li><a href="#design-skills">11.3 Taste ⭐ (reel author's favorite)</a></li>
         <li><a href="#design-skills">11.4 The full "designer" stack</a></li>
+        <li><a href="#design-skills">11.5 UI/UX inspiration libraries (Mobbin, PageFlows, etc.)</a></li>
       </ol>
     </li>
   </ol>
@@ -453,6 +454,7 @@
         <li><a href="#ai-workflow">17.3 The CLAUDE.md 5-item template</a></li>
         <li><a href="#ai-workflow">17.4 The /raw → /wiki workflow (concrete example)</a></li>
         <li><a href="#ai-workflow">17.5 Ready prompts (copy-paste)</a></li>
+        <li><a href="#ai-workflow-wiki-deep">17.6 The Wiki Layer — deep dive (Obsidian + structuring agent)</a></li>
       </ol>
     </li>
   </ol>
@@ -3432,6 +3434,78 @@ npx skills add https://github.com/Leonxlnx/taste-skill</code></pre>
 <div class="note">
 <strong>Other curated lists worth a look</strong> when picking skills for a specific aesthetic: <a href="https://github.com/travisvn/awesome-claude-skills">travisvn/awesome-claude-skills</a> · <a href="https://github.com/GetBindu/awesome-claude-code-and-skills">GetBindu/awesome-claude-code-and-skills</a> · <a href="https://pasqualepillitteri.it/en/news/576/claude-code-skills-design-uiux-guide">"18 Best Claude Code Skills for UI/UX Design"</a> · <a href="https://medium.com/@julian.oczkowski/7-claude-code-design-skills-that-follow-a-real-design-process-b871b8673d05">"7 Claude Code Design Skills That Follow a Real Design Process"</a>.
 </div>
+
+<h3>11.5 UI/UX inspiration libraries (Asi&rsquo;s reference shelf)</h3>
+
+<p>Source: X post by <a href="https://x.com/UiSavior">@UiSavior</a> (2026, "Resources for UIUX designers") — a curated list of 9 sites every designer eventually bookmarks. Asi sent this 2026-06-01. Use these when starting any client UI from scratch: borrow patterns rather than invent them.</p>
+
+<table>
+<tr><th>Site</th><th>What it&rsquo;s for</th><th>When to use</th></tr>
+<tr>
+  <td><a href="https://mobbin.com">mobbin.com</a> ⭐</td>
+  <td><strong>The gold standard.</strong> 600K+ searchable mobile &amp; web app screenshots from real production apps. Browse onboarding / checkout / settings / paywalls / etc. by flow.</td>
+  <td><strong>Every time you start a feature.</strong> Search "how does Notion handle empty state for X" and see the real screen. $10/mo billed yearly.</td>
+</tr>
+<tr>
+  <td><a href="https://pageflows.com">pageflows.com</a></td>
+  <td>100K+ <strong>video-recorded user flows</strong> from real apps. See the actual click sequence, not just static screens.</td>
+  <td>When you need to understand the <em>motion</em> of a flow, not just the layout. Stripe-style onboarding, multi-step checkouts, etc.</td>
+</tr>
+<tr>
+  <td><a href="https://lookup.design">lookup.design</a></td>
+  <td>Curated screen library for SaaS-specific UI: dashboards, settings pages, admin panels.</td>
+  <td>For client-facing B2B work where you need "looks like Linear/Vercel/Notion" energy.</td>
+</tr>
+<tr>
+  <td><a href="https://pttrns.com">pttrns.net</a></td>
+  <td>Mobile UI patterns library, organized by category (auth, onboarding, search, e-commerce, etc.).</td>
+  <td>Mobile-first projects, especially when adapting a mobile flow to web.</td>
+</tr>
+<tr>
+  <td><a href="https://appshot.gallery">appshot.gallery</a></td>
+  <td>App store screenshot gallery — see how successful apps present themselves on iOS/Android stores.</td>
+  <td>If a client is shipping to an app store. The marketing screenshots matter more than the actual app for first impression.</td>
+</tr>
+<tr>
+  <td><a href="https://chamjo.design">chamjo.design</a></td>
+  <td>Curated UI inspiration with a focus on "premium" aesthetics — design systems used by funded startups.</td>
+  <td>When the client wants "looks expensive."</td>
+</tr>
+<tr>
+  <td><a href="https://darkmodedesign.com">darkmodedesign.com</a></td>
+  <td>Dark-mode specific UI inspiration. Apps designed dark-first, not just light-mode-with-colors-inverted.</td>
+  <td>For developer tools, financial dashboards, or anywhere users will spend hours staring at the screen.</td>
+</tr>
+<tr>
+  <td><a href="https://neumorphism.io">neumorphism.io</a></td>
+  <td>CSS code generator for neumorphic ("soft UI") shadows and gradients.</td>
+  <td>If you actually want neumorphic look — <strong>but be careful:</strong> low-contrast shadows are bad for accessibility. Skip for anything WCAG-compliant.</td>
+</tr>
+<tr>
+  <td><a href="https://codesandbox.io">codesandbox.io</a></td>
+  <td>In-browser code playground. The reel categorized it as "UI testing" — you can prototype a component in isolation, share via URL.</td>
+  <td>When you want to test a component before integrating it into a project. Also great to show a client an interactive prototype.</td>
+</tr>
+</table>
+
+<h4>How to actually use these (not just collect bookmarks)</h4>
+
+<ol>
+  <li><strong>Before building any new screen</strong>: search Mobbin or PageFlows for the exact flow (e.g. "two-factor authentication" or "subscription paywall"). Borrow the structure of 2-3 examples that work.</li>
+  <li><strong>Save the inspiration to <code>/docs/raw/inspiration/[feature].md</code></strong> with screenshots + links — per Section 17.3 (Karpathy /raw → /wiki workflow). The model can reference them when generating the UI.</li>
+  <li><strong>For B2B clients</strong>: lookup.design + chamjo.design. Their patterns look closer to what clients expect "professional SaaS" to look like than Dribbble does.</li>
+  <li><strong>For app-store deliveries</strong>: appshot.gallery during marketing-asset prep. The app-store screenshots often convert better than the app itself.</li>
+  <li><strong>Skip neumorphism unless explicitly asked</strong>. It looks cool, but it&rsquo;s bad for accessibility and dated as of 2026.</li>
+</ol>
+
+<h4>Other lists worth knowing about (Mobbin alternatives)</h4>
+
+<ul>
+  <li><a href="https://www.banani.co/references">Banani</a> — free Mobbin alternative.</li>
+  <li><a href="https://uxarchive.com">UXArchive</a> — historical journey mapping (see how app flows changed across versions).</li>
+  <li><a href="https://screenlane.com">Screenlane</a> — focused on web UI inspiration.</li>
+  <li><a href="https://lapaninja.com">Lapa Ninja</a> — landing page inspiration.</li>
+</ul>
 </div>
 </section>
 
@@ -3983,6 +4057,12 @@ function SearchBox() {
 <h4>Karpathy&rsquo;s 7 AI workflow habits (X article) <span class="meta">(X · 2026-05-28 · @scottybeamio status 2059998232168571039)</span></h4>
 <p>Meta-advice on <em>how to use Claude Code itself</em>. 7 habits: context-over-prompts, 5-item CLAUDE.md, 3-layer system (raw/wiki/CLAUDE.md), save-permanently after good answers, index.md+log.md for &gt;1-week projects, brilliant-intern-on-short-leash workflow, HTML output trick. Full breakdown + Asi-specific mapping + CLAUDE.md template + /raw→/wiki concrete workflow + 5 ready prompts at <a href="#ai-workflow">Section 17 — Working with AI coding agents</a>.</p>
 
+<h4>Wiki Layer deep dive (90% token savings) <span class="meta">(X · 2026-05-26 · @bonsaixbt status 2059266993950277656)</span></h4>
+<p>Concrete how-to for Habit 3 (the /raw → /wiki system) from the Karpathy article. Token savings 70-90% on repeated queries. Pairs with Obsidian for visual knowledge graph. Includes 3-folder structure (raw/wiki/instructions), production-ready structuring-agent prompt with conflict + stub + audit policies, "when to start vs skip" decision table, and 4 Asi-specific candidate projects to apply it to (this very doc, per-client wikis, 10mil bot research, asibrain personal). See <a href="#ai-workflow-wiki-deep">Section 17.6 — Wiki Layer deep dive</a>.</p>
+
+<h4>9 UI/UX inspiration libraries (X post) <span class="meta">(X · 2026-06-01 · @UiSavior "Resources for UIUX designers", screenshot sent by Asi)</span></h4>
+<p>Curated list of 9 design-reference sites: <strong>Mobbin</strong> (gold standard, 600K app screenshots), <strong>PageFlows</strong> (video user flows), <strong>lookup.design</strong> (SaaS UI), <strong>pttrns.net</strong> (mobile patterns), <strong>appshot.gallery</strong> (App Store screenshots), <strong>chamjo.design</strong> ("premium" aesthetic), <strong>darkmodedesign.com</strong>, <strong>neumorphism.io</strong> (CSS gen — accessibility warning), <strong>codesandbox.io</strong>. Full table + when to use each + how to integrate with Karpathy /raw → /wiki workflow at <a href="#design-skills">Section 11.5 — UI/UX inspiration libraries</a>.</p>
+
 <h4>PocketBase + Dub.co — GitHub repos worth bookmarking <span class="meta">(IG · 2026-05-30 · reel DWeEBO7jbvO)</span></h4>
 <p>PocketBase = single-binary backend (SQLite + auth + storage + admin + REST + realtime) — best for self-hosted client deliveries or MVPs. Dub.co = open-source self-hosted Bitly. Both at <a href="#tools-watching">Section 10.3 — Tools to evaluate</a>.</p>
 
@@ -4202,6 +4282,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-06-01 (UI/UX libraries + Wiki Layer deep dive)</td><td>Two additions: <strong>Section 11.5</strong> — 9 UI/UX inspiration libraries (Mobbin, PageFlows, lookup.design, pttrns, appshot.gallery, chamjo.design, darkmodedesign, neumorphism.io with a11y warning, codesandbox), with how-to-actually-use guidance integrated into the /raw → /wiki workflow. From X screenshot of @UiSavior. <strong>Section 17.6</strong> — The Wiki Layer deep dive: 3-folder structure (raw/wiki/instructions), Obsidian integration for visual knowledge graph, production-ready structuring-agent prompt with conflict/stub/audit policies, when-to-start-vs-skip table, 4 Asi-specific projects to apply it to. From X article by @bonsaixbt — Karpathy&rsquo;s wiki-layer 90% token savings.</td></tr>
 <tr><td>2026-05-31 (product analytics)</td><td>Added Section 8.10 — Product analytics (PostHog / Amplitude). From reel DY2zZvMsVzj. Includes the product-vs-site analytics distinction (Plausible answers "how many visitors"; PostHog answers "what % of users complete onboarding"), 3-tool comparison, minimum useful event set (~10 events not 100), weekly review checklist, Asi-specific guidance per project type, and a pre-delivery audit prompt.</td></tr>
 <tr><td>2026-05-31 (Karpathy 7 habits)</td><td>Added Section 17 — Working with AI coding agents (Karpathy&rsquo;s 7 habits). From an X article by @scottybeamio (article wasn&rsquo;t accessible via standard fetch — extracted with a headless browser script). The 7 habits cover: context over prompts, 5-item CLAUDE.md template (full template included), /raw → /wiki 3-layer system (with concrete file-layout example), save-after-good-answers, index.md + log.md for any project &gt; 1 week, "brilliant intern on a short leash" workflow loop (load context → 2-3 options → pick → test → commit → repeat), and the "structure as HTML" output trick. Includes Asi-specific habit-by-habit mapping table (what he already does, what to start), and 5 copy-paste prompts.</td></tr>
 <tr><td>2026-05-30 (debouncing)</td><td>Added debouncing subsection to 14.2 from reel DY79qxIvkku — fix for AI-default "DB query per keystroke" pattern. 8-line React hook + TanStack Query integration + 3 timing values by use case (150/300/500-800ms). Also acknowledged Layer 12 reel (DY7iptdRsB0) as re-share of Sentry coverage in 8.6/8.9.</td></tr>
@@ -4476,8 +4557,186 @@ file | issue | severity | one-line fix."
 "Structure your final response as a self-contained HTML file."</code></pre>
 </div>
 
-<h3>17.6 Source</h3>
-<p>X article by <a href="https://x.com/scottybeamio/status/2059998232168571039">@ScottyBeamIO</a>, published 2026-05-28, 240K views. The article cites Karpathy&rsquo;s public talks and posts but isn&rsquo;t a direct Karpathy quote — it&rsquo;s @scottybeamio&rsquo;s synthesis of Karpathy&rsquo;s system. Asi sent the URL on 2026-05-31; this document was extracted using a headless browser (the article isn&rsquo;t accessible via standard fetch tools).</p>
+<h3 id="ai-workflow-wiki-deep">17.6 The Wiki Layer — deep dive (the part Habit 3 only hinted at)</h3>
+
+<p>Source: X article by <a href="https://x.com/bonsaixbt/status/2059266993950277656">@bonsaixbt</a> (2026-05-26, 870K views). Standalone deep-dive on the same Wiki Layer concept that Karpathy describes in Habit 3 — but with the concrete tooling and structure that the 7-habits article only hinted at. <strong>Read this if you actually want to set up the system.</strong></p>
+
+<h4>The framing line that sells it</h4>
+
+<blockquote><strong>"Your LLM is burning through tokens — Karpathy found a way to save 90%."</strong></blockquote>
+
+<p>The core insight: every time you ask an LLM about your project, you re-upload the same raw files. The model re-reads them every time. <strong>Token waste is enormous; quality drops because the model loses context across sessions.</strong> The Wiki Layer fixes this by doing the cleanup + structure ONCE, then operating on the structured version forever after.</p>
+
+<h4>What you actually get when you build it</h4>
+
+<ul>
+  <li><strong>70-90% token savings</strong> on repeated queries (no more re-feeding raw PDFs / HTML / spreadsheets).</li>
+  <li><strong>Significantly better answer quality</strong> — the model works from cleaned, structured data instead of guessing through formatting noise.</li>
+  <li><strong>Automatic links between documents</strong> — wiki-style <code>[[Page_Name]]</code> references.</li>
+  <li><strong>Visual knowledge graph</strong> (when paired with Obsidian — see below).</li>
+  <li><strong>System grows + updates itself</strong> — every new piece of source material gets cleaned and linked into the existing wiki.</li>
+  <li><strong>Privacy</strong> — entirely on your local machine. Nothing in the cloud.</li>
+</ul>
+
+<h4>The 3-folder structure (concrete)</h4>
+
+<table>
+<tr><th>Folder</th><th>What goes here</th><th>Who maintains</th><th>Rule</th></tr>
+<tr>
+  <td><code>raw/</code></td>
+  <td>Original materials: HTML, PDFs, text notes, screenshots, spreadsheets, transcripts, anything.</td>
+  <td>You (just dump files in)</td>
+  <td><strong>Never edit manually.</strong> Single source of truth.</td>
+</tr>
+<tr>
+  <td><code>wiki/</code></td>
+  <td>Clean, structured Markdown files generated by the LLM. Cross-linked with <code>[[Page_Name]]</code> syntax.</td>
+  <td>The LLM (you instruct it to process <code>raw/</code> → <code>wiki/</code>)</td>
+  <td>The model&rsquo;s primary workspace from now on.</td>
+</tr>
+<tr>
+  <td><code>instructions/</code> (or <code>templates/</code>)</td>
+  <td>Files defining: how to clean data, which templates to apply, link conventions, metadata fields, update rules.</td>
+  <td>You (write once, refine over time)</td>
+  <td>This is what makes the system reproducible.</td>
+</tr>
+</table>
+
+<h4>Step-by-step: build your first Wiki Layer (≈1 hour setup)</h4>
+
+<ol>
+  <li><strong>Create the project folder structure</strong>:
+    <div class="copy-block">
+    <pre><code>mkdir -p my-project/{raw,wiki,instructions}
+cd my-project
+# Drop all existing materials into ./raw/
+# Examples: client briefs, API docs PDF, screenshots, meeting notes</code></pre>
+    </div>
+  </li>
+  <li><strong>Write the structuring-agent prompt</strong> in <code>instructions/structure.md</code>:
+    <div class="copy-block">
+    <pre><code>You are a knowledge-base structuring agent. Your job is to process files
+in raw/ and produce clean, interlinked Markdown in wiki/.
+
+For each file in raw/:
+1. Strip technical junk: ads, navigation, headers, footers, formatting noise.
+2. Extract: title, date (if findable), key topics (3-5), key entities (people,
+   companies, products, technologies).
+3. Convert to clean Markdown with consistent headings.
+4. Apply the templates in instructions/templates/ based on document type.
+5. Cross-link to existing wiki/ pages via [[Page_Name]] syntax.
+6. Add YAML frontmatter:
+   ---
+   source: raw/[original-filename]
+   date_processed: YYYY-MM-DD
+   topics: [topic1, topic2]
+   entities: [entity1, entity2]
+   ---
+7. Save to wiki/[topic]/[slug].md
+8. Update wiki/index.md with a one-line entry.
+
+Conflict rule: if a new file contradicts an existing wiki page, do NOT
+overwrite. Create wiki/conflicts/[topic]-[date].md and flag for me to
+resolve.</code></pre>
+    </div>
+  </li>
+  <li><strong>Run the agent</strong>: in Claude Code at the project root, say <em>"Process all files in raw/ according to instructions/structure.md."</em> Wait. Review the first few wiki pages it generates; tighten the prompt if needed.</li>
+  <li><strong>Open in Obsidian</strong>: install <a href="https://obsidian.md">Obsidian</a> (free), open the project folder as a vault. You instantly get: visual knowledge graph, full-text search, click-through between linked notes. <strong>No extra setup.</strong></li>
+  <li><strong>Switch your workflow</strong>: instead of "upload these 12 PDFs and process this question," tell Claude <em>"Work with my Wiki database inside the wiki/ folder."</em> 90% fewer tokens, 5x faster, much higher accuracy.</li>
+</ol>
+
+<h4>When to start using a Wiki Layer</h4>
+
+<table>
+<tr><th>Start when</th><th>Skip when</th></tr>
+<tr>
+  <td>You have &gt; 10–20 documents on the same topic</td>
+  <td>The project has &lt; 5 source files. Manual is faster.</td>
+</tr>
+<tr>
+  <td>Your data is constantly updated or expanded</td>
+  <td>The data is static (one-time delivery, won&rsquo;t grow).</td>
+</tr>
+<tr>
+  <td>You regularly generate content, reports, or research</td>
+  <td>You only need to answer 1-2 questions from the data and move on.</td>
+</tr>
+<tr>
+  <td>You handle confidential / business / personal data (local-only matters)</td>
+  <td>Data is fully public anyway (no privacy benefit).</td>
+</tr>
+</table>
+
+<h4>For Asi specifically — where to build a Wiki Layer first</h4>
+
+<ul>
+  <li><strong>This very document (asi_brain_shared)</strong> is your most active Wiki Layer already — every reel + voice + LinkedIn article you send gets cleaned, linked, indexed (changelog). The big difference: you don&rsquo;t use Obsidian yet, and the cross-linking is manual (Section X.Y links). Worth trying <strong>Obsidian on top of the existing docs/wiki structure</strong>.</li>
+  <li><strong>Per-client wikis</strong> — every active client project should have its own <code>raw/wiki/instructions/</code> setup. Client emails, briefs, screenshots → raw/. Decisions, schemas, integration notes → wiki/. Saves you re-explaining the project to Claude every session.</li>
+  <li><strong>Trading bot research</strong> — the <code>~/10mil/</code> docs folder already has 20+ research files. A proper Wiki Layer with Obsidian on top would make the "what did we conclude about X 6 weeks ago?" question 10x faster to answer.</li>
+  <li><strong>Personal knowledge (asibrain)</strong> — recipes, watchlist, voice transcripts, ideas. Asi already has <code>~/asibrain/</code> as a folder; turning it into a proper Wiki Layer (with Obsidian) would unlock visual graph navigation.</li>
+</ul>
+
+<h4>The "structuring agent" prompt (a more advanced, production-ready version)</h4>
+
+<div class="copy-block">
+<pre><code>SYSTEM: You are the Wiki Layer structuring agent for [project name].
+Your job: keep wiki/ in sync with raw/ following these rules.
+
+When I say "sync wiki", you:
+1. Diff raw/ vs wiki/. List new/modified raw/ files that don&rsquo;t have a
+   corresponding wiki/ page yet (or whose source date is newer).
+2. For each new/modified file, do the full clean-extract-link-template
+   pipeline below.
+3. After all files processed, update wiki/index.md (the map) and append
+   to wiki/log.md (date | files-touched | summary).
+4. Report a 3-sentence summary of what changed.
+
+Clean pipeline (per file):
+- Strip ads, nav, footer, repeated headers, marketing fluff.
+- Extract: title, dates, 3-5 topics, key entities (people/companies/products).
+- Convert to clean Markdown with H2/H3/H4 hierarchy.
+- Apply the matching template from instructions/templates/.
+- Cross-link entities and topics with [[Page_Name]] syntax — if the linked
+  page doesn&rsquo;t exist yet, create a stub.
+- Add YAML frontmatter (source, date_processed, topics, entities).
+- Save to wiki/[topic-folder]/[slug].md.
+
+Conflict policy:
+- If a new file says something different from an existing wiki page —
+  DO NOT overwrite. Save the new version as wiki/conflicts/[topic]-[date].md
+  and add a top-line note to the original page: "Conflict pending: see
+  conflicts/[file]."
+
+Stub policy:
+- If you create a [[Link]] to a page that doesn&rsquo;t exist, create
+  wiki/[topic]/[slug].md with frontmatter + "TODO: stub — fill from raw/X"
+  and add to wiki/index.md flagged as STUB.
+
+Audit policy (run monthly when I say "audit wiki"):
+- List duplicates (same topic, multiple pages).
+- List stubs older than 30 days (likely abandoned).
+- List orphans (wiki pages with no incoming links).
+- List broken [[Links]].
+- Output as a table with severity + recommended action.</code></pre>
+</div>
+
+<h4>The full toolset (one-time install)</h4>
+
+<table>
+<tr><th>Tool</th><th>Cost</th><th>Purpose</th></tr>
+<tr><td><a href="https://obsidian.md">Obsidian</a></td><td>Free for personal use</td><td>Visual knowledge graph, search, navigation. The Wiki Layer&rsquo;s reading interface.</td></tr>
+<tr><td>Claude Code (or any LLM with file access)</td><td>You already have it</td><td>The structuring agent.</td></tr>
+<tr><td>Git</td><td>Free</td><td>Version control on the wiki itself — recoverable history.</td></tr>
+<tr><td>An <code>instructions/</code> folder you maintain</td><td>Free, just time</td><td>The rules that make the system reproducible across new LLM sessions.</td></tr>
+</table>
+
+<h3>17.7 Sources</h3>
+<p>Two X articles, extracted via headless browser (X blocks standard fetch tools):</p>
+<ul>
+  <li><a href="https://x.com/scottybeamio/status/2059998232168571039">@ScottyBeamIO — "Andrej Karpathy says 99% of AI users are missing 7 basics"</a> (2026-05-28, 240K views). The original 7-habits framework. Sent by Asi 2026-05-31.</li>
+  <li><a href="https://x.com/bonsaixbt/status/2059266993950277656">@bonsaixbt — "Your LLM Is Burning Through Tokens - Karpathy Found a Way to Save 90%"</a> (2026-05-26, 870K views). Deep dive on the Wiki Layer specifically. Sent by Asi 2026-06-01.</li>
+</ul>
+<p>Both are syntheses of Karpathy&rsquo;s public talks and posts, not direct quotes from him.</p>
 
 </div>
 </section>
