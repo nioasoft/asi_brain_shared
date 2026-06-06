@@ -390,6 +390,15 @@
         <li><a href="#webhook-delivery">18.6 Security and audit prompt</a></li>
       </ol>
     </li>
+    <li><a href="#mobile-deep-links">Mobile deep links (Universal Links / Android App Links / Expo)</a>
+      <ol>
+        <li><a href="#mobile-deep-links">19.1 The failure mode</a></li>
+        <li><a href="#mobile-deep-links">19.2 Apple Universal Links</a></li>
+        <li><a href="#mobile-deep-links">19.3 Android App Links</a></li>
+        <li><a href="#mobile-deep-links">19.4 Expo / React Native setup</a></li>
+        <li><a href="#mobile-deep-links">19.5 Fallback and audit prompt</a></li>
+      </ol>
+    </li>
   </ol>
 
   <p style="margin: 1rem 0 0.6rem; font-size: 0.82rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">Part IV — Pre-Delivery Operations</p>
@@ -4019,6 +4028,9 @@ function SearchBox() {
 
 <h3>14.7 UX patterns</h3>
 
+<h4>Mobile deep links / Universal Links <span class="meta">(IG · 2026-06-06 · reel DZLHBM9xY33 · @mattmurphyai)</span></h4>
+<p>Shared mobile content links should open the app when installed and fall back to the web page when not installed. Added Apple Universal Links, Android App Links, Expo/React Native config, smart-banner fallback, and audit prompt at <a href="#mobile-deep-links">Section 19 — Mobile deep links</a>.</p>
+
 <h4>UI vs UX — the foundation <span class="meta">(IG · 2026-05-30 · reel DYIHYJCIAeT · "Building with good UX" Part 1)</span></h4>
 <p>UI = looks; UX = feels. AI tools build the happy path. The 5 UX dimensions to audit: predictability, feedback, recoverability, trust, friction. Full breakdown + UX self-test prompt at <a href="#ux-foundation">Section 9.1 — UI vs UX</a>.</p>
 
@@ -4296,6 +4308,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-06-06</td><td><strong>Added Section 19 — Mobile deep links.</strong> From IG reel DZLHBM9xY33. Covers Apple Universal Links, Android App Links, Expo/React Native linking, web fallback when the app is not installed, smart install banners, verification commands, and a Claude audit prompt for future mobile apps.</td></tr>
 <tr><td>2026-06-06</td><td><strong>Added Section 18 — Webhook delivery architecture.</strong> Integrated IG reel DZKq0TiRiij into the shared GitHub-backed HTML instead of a standalone local note. Added outbox → dispatcher → workers → DLQ/replay architecture, HMAC signing checklist, audit prompt, and reel-index entry.</td></tr>
 <tr><td>2026-06-01 (cleanup pass)</td><td><strong>Doc hygiene per Asi&rsquo;s request — verify-quality-non-redundant standard now enforced.</strong> Section 9 renumbered to sequential 9.1-9.9 (was 9.0/9.0.5/9.1/9.1.5/9.2-9.6 — confusing). Section 13 renumbered (subsections were stuck at "5.1-5.5" from old restructure). Section 10.3 (Tools to evaluate) gained a top-of-section status table for quick scan. Section 14: deleted 5 worthless entries (Forge 8B clickbait, "Faction" service ad, unnamed-toolkit promo, Layer 5 / Layer 12 re-shares). Renamed Forge 8B in 10.3 to "LLM scaffolding pattern" — kept the useful principle, dropped the clickbait framing.</td></tr>
 <tr><td>2026-06-01 (UI/UX libraries + Wiki Layer deep dive)</td><td>Two additions: <strong>Section 11.5</strong> — 9 UI/UX inspiration libraries (Mobbin, PageFlows, lookup.design, pttrns, appshot.gallery, chamjo.design, darkmodedesign, neumorphism.io with a11y warning, codesandbox), with how-to-actually-use guidance integrated into the /raw → /wiki workflow. From X screenshot of @UiSavior. <strong>Section 17.6</strong> — The Wiki Layer deep dive: 3-folder structure (raw/wiki/instructions), Obsidian integration for visual knowledge graph, production-ready structuring-agent prompt with conflict/stub/audit policies, when-to-start-vs-skip table, 4 Asi-specific projects to apply it to. From X article by @bonsaixbt — Karpathy&rsquo;s wiki-layer 90% token savings.</td></tr>
@@ -4856,6 +4869,144 @@ Retry Scheduler → Dead Letter Queue → Replay UI</code></pre>
 4. End with the top 3 changes to make before production.
 
 Do not change code yet. Produce the audit report only.</code></pre>
+</div>
+
+</div>
+</section>
+
+
+<section class="major" id="mobile-deep-links">
+<h2>19. Mobile deep links (Universal Links / Android App Links / Expo)</h2>
+<div class="section-body">
+
+<p>Source: IG reel <code>DZLHBM9xY33</code> (2026-06-06, @mattmurphyai). The reel is useful for future mobile apps: when a user shares a link to app content, the same URL should open the installed app; if the app is not installed, it should open the web page and invite install. Without this, shared links dump users into a browser/login wall and conversion dies.</p>
+
+<div class="note">
+<strong>When this matters for Asi:</strong> skip this for normal brochure sites and plain web apps. Use it when a client/project has a real mobile app or Expo/React Native app with shareable content: profiles, orders, events, invoices, bookings, restaurant menus, posts, or any object that users send to each other.
+</div>
+
+<h3>19.1 The failure mode</h3>
+<ul>
+  <li>User shares <code>https://example.com/orders/123</code>.</li>
+  <li>Recipient has the app installed, but the link opens Safari/Chrome instead.</li>
+  <li>The web page asks them to log in again or cannot show the mobile-only flow.</li>
+  <li>They bounce — not because the app feature is bad, but because the link-routing contract is missing.</li>
+</ul>
+<p><strong>Rule:</strong> app links are not “nice to have” once mobile sharing matters. They are part of activation and retention.</p>
+
+<h3>19.2 Apple Universal Links</h3>
+<p>iOS uses a domain-hosted JSON file to prove that your domain is allowed to open your app.</p>
+<div class="copy-block">
+<pre><code>https://example.com/.well-known/apple-app-site-association</code></pre>
+</div>
+<ul>
+  <li>No <code>.json</code> extension.</li>
+  <li>Serve as JSON, ideally <code>application/json</code>.</li>
+  <li>No redirects — Apple must fetch the file directly.</li>
+  <li>Add the associated domain entitlement in the app: <code>applinks:example.com</code>.</li>
+  <li>Map only the paths that should open the app, not the whole site by accident.</li>
+</ul>
+<div class="copy-block">
+<pre><code>{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["TEAMID.com.company.app"],
+        "components": [
+          { "/": "/orders/*", "comment": "Open order details in app" },
+          { "/": "/events/*", "comment": "Open event details in app" }
+        ]
+      }
+    ]
+  }
+}</code></pre>
+</div>
+
+<h3>19.3 Android App Links</h3>
+<p>Android uses Digital Asset Links plus intent filters in the app manifest.</p>
+<div class="copy-block">
+<pre><code>https://example.com/.well-known/assetlinks.json</code></pre>
+</div>
+<div class="copy-block">
+<pre><code>[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.company.app",
+      "sha256_cert_fingerprints": ["AA:BB:CC:...:FF"]
+    }
+  }
+]</code></pre>
+</div>
+<p>In native Android, add an <code>intent-filter</code> with <code>android:autoVerify="true"</code>, <code>https</code> scheme, your host, and the path prefixes you support.</p>
+
+<h3>19.4 Expo / React Native setup</h3>
+<p>Expo can generate most of the native configuration from <code>app.json</code> / <code>app.config.ts</code> and route URLs through Expo Router.</p>
+<div class="copy-block">
+<pre><code>// app.config.ts — sketch, verify exact IDs per project
+export default {
+  expo: {
+    scheme: "myapp",
+    ios: {
+      bundleIdentifier: "com.company.app",
+      associatedDomains: ["applinks:example.com"]
+    },
+    android: {
+      package: "com.company.app",
+      intentFilters: [
+        {
+          action: "VIEW",
+          autoVerify: true,
+          data: [{ scheme: "https", host: "example.com", pathPrefix: "/orders" }],
+          category: ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    }
+  }
+}</code></pre>
+</div>
+<p>With Expo Router, keep web and app routes aligned where possible: <code>/orders/[id]</code> on web should correspond to the same logical screen in the app.</p>
+
+<h3>19.5 Fallback: app not installed</h3>
+<p>Do not send users to a dead app-store jump immediately. The URL should still be a real web URL:</p>
+<ul>
+  <li>If app installed → open directly in app.</li>
+  <li>If app not installed → open the web page for that content.</li>
+  <li>On the web page → show the useful content if allowed, plus a smart banner / install CTA.</li>
+  <li>After install/login → preserve the original destination so the user lands on the shared item, not the homepage.</li>
+</ul>
+
+<h3>19.6 Verification checklist</h3>
+<div class="copy-block">
+<pre><code>[ ] https://domain/.well-known/apple-app-site-association returns 200, no redirect
+[ ] https://domain/.well-known/assetlinks.json returns 200, no redirect
+[ ] Files contain the correct bundle/package IDs and Android SHA-256 fingerprint
+[ ] iOS associated domains include applinks:domain
+[ ] Android intent filters include https + host + pathPrefix + autoVerify
+[ ] Web fallback page works without the app installed
+[ ] After login/install, the original deep-link destination is preserved
+[ ] Test on a real iPhone and a real Android device — simulators are not enough</code></pre>
+</div>
+
+<h3>19.7 Audit prompt for a Claude session</h3>
+<div class="copy-block">
+<pre><code>This project has, or may soon have, a mobile app. Audit deep-link readiness.
+
+1. Identify shareable content routes: orders, profiles, events, bookings, posts, etc.
+2. Check whether the domain serves:
+   - /.well-known/apple-app-site-association
+   - /.well-known/assetlinks.json
+3. For each file, verify: HTTP 200, no redirect, valid JSON, correct app IDs,
+   correct path scope, and no over-broad wildcard unless justified.
+4. For iOS/Android/Expo config, verify associated domains, intent filters,
+   package/bundle IDs, and Android SHA-256 fingerprints.
+5. Test fallback behavior when the app is not installed: does the web page show
+   the content and a useful install CTA, or does it hit a login/dead page?
+6. Output: route | platform | current behavior | risk | exact fix.
+
+Do not change code yet. Produce the audit report first.</code></pre>
 </div>
 
 </div>
