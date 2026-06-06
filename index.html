@@ -380,6 +380,16 @@
         <li><a href="#file-storage">15.8 Audit prompt</a></li>
       </ol>
     </li>
+    <li><a href="#webhook-delivery">Webhook delivery architecture (outbox / retries / DLQ / replay)</a>
+      <ol>
+        <li><a href="#webhook-delivery">18.1 Version 1 — direct POST (don&rsquo;t)</a></li>
+        <li><a href="#webhook-delivery">18.2 Version 2 — transactional outbox</a></li>
+        <li><a href="#webhook-delivery">18.3 Version 3 — customer isolation</a></li>
+        <li><a href="#webhook-delivery">18.4 Version 4 — smart retries</a></li>
+        <li><a href="#webhook-delivery">18.5 Version 5 — DLQ + replay UI</a></li>
+        <li><a href="#webhook-delivery">18.6 Security and audit prompt</a></li>
+      </ol>
+    </li>
   </ol>
 
   <p style="margin: 1rem 0 0.6rem; font-size: 0.82rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">Part IV — Pre-Delivery Operations</p>
@@ -3705,6 +3715,9 @@ For each finding give file:line and a 1-line fix. Don't write code yet.</code></
 
 <h3>14.2 Performance &amp; scaling</h3>
 
+<h4>Webhook delivery system architecture <span class="meta">(IG · 2026-06-06 · reel DZKq0TiRiij · @kodekloud)</span></h4>
+<p>Production webhook sender for ~10M events/day: transactional outbox, dispatcher, per-customer concurrency limits, exponential retries, DLQ, replay UI, HMAC signing. Full breakdown at <a href="#webhook-delivery">Section 18 — Webhook delivery architecture</a>.</p>
+
 <h4>Surviving your first 100 users <span class="meta">(IG · 2026-05-23 · reel DYkAobpgwjI)</span></h4>
 <ol>
   <li><strong>Connection pooling</strong> — Supabase has it built in. Self-hosted Postgres → use PgBouncer. One config change, immediate relief.</li>
@@ -4283,6 +4296,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-06-06</td><td><strong>Added Section 18 — Webhook delivery architecture.</strong> Integrated IG reel DZKq0TiRiij into the shared GitHub-backed HTML instead of a standalone local note. Added outbox → dispatcher → workers → DLQ/replay architecture, HMAC signing checklist, audit prompt, and reel-index entry.</td></tr>
 <tr><td>2026-06-01 (cleanup pass)</td><td><strong>Doc hygiene per Asi&rsquo;s request — verify-quality-non-redundant standard now enforced.</strong> Section 9 renumbered to sequential 9.1-9.9 (was 9.0/9.0.5/9.1/9.1.5/9.2-9.6 — confusing). Section 13 renumbered (subsections were stuck at "5.1-5.5" from old restructure). Section 10.3 (Tools to evaluate) gained a top-of-section status table for quick scan. Section 14: deleted 5 worthless entries (Forge 8B clickbait, "Faction" service ad, unnamed-toolkit promo, Layer 5 / Layer 12 re-shares). Renamed Forge 8B in 10.3 to "LLM scaffolding pattern" — kept the useful principle, dropped the clickbait framing.</td></tr>
 <tr><td>2026-06-01 (UI/UX libraries + Wiki Layer deep dive)</td><td>Two additions: <strong>Section 11.5</strong> — 9 UI/UX inspiration libraries (Mobbin, PageFlows, lookup.design, pttrns, appshot.gallery, chamjo.design, darkmodedesign, neumorphism.io with a11y warning, codesandbox), with how-to-actually-use guidance integrated into the /raw → /wiki workflow. From X screenshot of @UiSavior. <strong>Section 17.6</strong> — The Wiki Layer deep dive: 3-folder structure (raw/wiki/instructions), Obsidian integration for visual knowledge graph, production-ready structuring-agent prompt with conflict/stub/audit policies, when-to-start-vs-skip table, 4 Asi-specific projects to apply it to. From X article by @bonsaixbt — Karpathy&rsquo;s wiki-layer 90% token savings.</td></tr>
 <tr><td>2026-05-31 (product analytics)</td><td>Added Section 8.10 — Product analytics (PostHog / Amplitude). From reel DY2zZvMsVzj. Includes the product-vs-site analytics distinction (Plausible answers "how many visitors"; PostHog answers "what % of users complete onboarding"), 3-tool comparison, minimum useful event set (~10 events not 100), weekly review checklist, Asi-specific guidance per project type, and a pre-delivery audit prompt.</td></tr>
@@ -4739,6 +4753,110 @@ Audit policy (run monthly when I say "audit wiki"):
   <li><a href="https://x.com/bonsaixbt/status/2059266993950277656">@bonsaixbt — "Your LLM Is Burning Through Tokens - Karpathy Found a Way to Save 90%"</a> (2026-05-26, 870K views). Deep dive on the Wiki Layer specifically. Sent by Asi 2026-06-01.</li>
 </ul>
 <p>Both are syntheses of Karpathy&rsquo;s public talks and posts, not direct quotes from him.</p>
+
+</div>
+</section>
+
+<section class="major" id="webhook-delivery">
+<h2>18. Webhook delivery architecture (outbox / retries / DLQ / replay)</h2>
+<div class="section-body">
+
+<p>Source: IG reel <code>DZKq0TiRiij</code> (2026-06-06, @kodekloud). The useful part is not “use webhooks” — it is the production delivery architecture for sending millions of customer webhooks without losing events or letting one slow customer take everyone down.</p>
+
+<div class="note">
+<strong>When this section applies:</strong> any product where your system sends events to customer-owned endpoints: order updates, payment events, CRM sync, accounting integrations, marketplace seller events, notifications, or partner APIs. If you promise customers “we will notify your system when X happens,” this is the pattern.
+</div>
+
+<h3>18.1 Version 1 — direct POST from the request handler (don&rsquo;t)</h3>
+<p>The naive implementation is: event happens → backend immediately <code>POST</code>s to the customer URL → continue the user request after the webhook returns.</p>
+<ul>
+  <li><strong>Blocks your own request path:</strong> a slow customer endpoint makes your user-facing request slow.</li>
+  <li><strong>Loses events:</strong> if the customer endpoint is down and you did not persist the event first, there is nothing reliable to retry.</li>
+  <li><strong>Creates cascading failures:</strong> customer outage becomes your outage.</li>
+</ul>
+
+<h3>18.2 Version 2 — transactional outbox (durability first)</h3>
+<p>Write the event to a durable outbox table in the same transaction as the business change, then let separate workers deliver it asynchronously.</p>
+<div class="copy-block">
+<pre><code>BEGIN;
+  UPDATE orders SET status = 'paid' WHERE id = $order_id;
+  INSERT INTO webhook_outbox (customer_id, event_type, payload, status)
+  VALUES ($customer_id, 'order.paid', $payload, 'pending');
+COMMIT;</code></pre>
+</div>
+<p><strong>Rule:</strong> if the business event committed, the webhook event must be durably recorded too. Delivery is allowed to be late; the event is not allowed to disappear.</p>
+
+<h3>18.3 Version 3 — dispatcher + customer isolation</h3>
+<p>A single global worker pool still has a head-of-line blocking problem: one customer with a slow endpoint can consume every worker. Add a dispatcher that schedules fairly and enforces per-customer concurrency.</p>
+<table>
+<tr><th>Component</th><th>Job</th><th>Production rule</th></tr>
+<tr><td>Outbox</td><td>Durable event store</td><td>Pending / delivered / failed / dead-lettered state; unique event IDs.</td></tr>
+<tr><td>Dispatcher</td><td>Picks the next deliverable event</td><td>Skip customers already at their concurrency limit.</td></tr>
+<tr><td>Worker pool</td><td>POSTs to customer endpoints</td><td>Short timeout, bounded concurrency, structured result logging.</td></tr>
+<tr><td>Per-customer limits</td><td>Noisy-neighbor protection</td><td>Customer A&rsquo;s outage only slows Customer A.</td></tr>
+</table>
+
+<h3>18.4 Version 4 — smart retries (temporary vs permanent)</h3>
+<p>Every delivery attempt needs a deadline and a retry classification.</p>
+<ul>
+  <li><strong>Success:</strong> <code>2xx</code> → mark delivered and store response metadata.</li>
+  <li><strong>Temporary failure:</strong> timeout, connection error, <code>429</code>, <code>5xx</code> → retry with exponential backoff and jitter.</li>
+  <li><strong>Permanent failure:</strong> malformed URL, DNS impossible, many <code>4xx</code> responses → stop retrying unless customer configuration changes.</li>
+</ul>
+<p>Use a short default timeout (for example 10 seconds). Do not let a webhook worker hang forever on a customer endpoint.</p>
+
+<h3>18.5 Version 5 — dead letter queue + replay UI</h3>
+<p>After max retries, move the event to a dead letter queue instead of deleting it. The DLQ is the support/debugging surface:</p>
+<ul>
+  <li>support can see exactly which events failed and why;</li>
+  <li>customers can fix their endpoint and request replay;</li>
+  <li>engineering gets an audit trail of every delivery attempt;</li>
+  <li>events are never silently lost.</li>
+</ul>
+
+<h3>18.6 Complete architecture</h3>
+<div class="copy-block">
+<pre><code>Backend transaction
+   ↓ writes business row + webhook_outbox row
+Transactional Outbox
+   ↓ pending events
+Dispatcher
+   ↓ fair scheduling + per-customer concurrency limits
+Worker Pool
+   ↓ signed HTTP POST with timeout
+Customer Endpoints
+   ↓ success / temporary failure / permanent failure
+Retry Scheduler → Dead Letter Queue → Replay UI</code></pre>
+</div>
+
+<h3>18.7 Security and observability checklist</h3>
+<ul>
+  <li><strong>Sign every request:</strong> HMAC signature using a per-customer secret; include timestamp to prevent replay attacks.</li>
+  <li><strong>Idempotency for receivers:</strong> include a stable event ID so customers can dedupe duplicate deliveries.</li>
+  <li><strong>Attempt log:</strong> store attempt number, status code, latency, response snippet, next retry time.</li>
+  <li><strong>Dashboards:</strong> delivery rate, failure rate, DLQ count, p95/p99 delivery latency, failures by customer.</li>
+  <li><strong>Customer controls:</strong> endpoint URL, secret rotation, pause/resume, replay failed events.</li>
+</ul>
+
+<h3>18.8 Audit prompt for a Claude session</h3>
+<div class="copy-block">
+<pre><code>Audit this project's webhook delivery architecture. Report file:line evidence.
+
+1. Find every place the app sends outbound webhooks / callbacks / partner POSTs.
+2. For each event source, answer:
+   - Is the business event and outbox event written in one DB transaction?
+   - Is delivery async, or does a user-facing request wait on a customer endpoint?
+   - Is there a durable outbox table with event_id, customer_id, status, attempts, next_retry_at?
+   - Are workers isolated per customer or can one slow endpoint consume the pool?
+   - Are retries exponential with jitter and max-attempt limits?
+   - Is there a DLQ and replay path?
+   - Are webhook requests HMAC-signed with timestamp + event ID?
+   - Are delivery attempts logged with response code, latency, and error?
+3. Output: risk | evidence | impact | one-line fix.
+4. End with the top 3 changes to make before production.
+
+Do not change code yet. Produce the audit report only.</code></pre>
+</div>
 
 </div>
 </section>
