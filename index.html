@@ -3817,6 +3817,17 @@ For each finding give file:line and a 1-line fix. Don't write code yet.</code></
 <tr><td>Database query results</td><td>Supabase / Postgres materialized views</td><td>For expensive aggregations. Refresh on a schedule.</td></tr>
 </table>
 
+<h4>3-layer cache stack <span class="meta">(IG · 2026-06-13 · reel DZfT4d5AiWg · @mattmurphyai)</span></h4>
+<p>The reel&rsquo;s useful addition: don&rsquo;t think of caching as one tool. Think in layers, from closest to the user down to the database:</p>
+<ol>
+  <li><strong>API response cache:</strong> Redis, Memcached, Upstash, or in-memory for read-heavy endpoints where the same request produces the same result for 30–60 seconds. Best first win for dashboards, catalog pages, and public read APIs.</li>
+  <li><strong>CDN / edge cache:</strong> Cloudflare, Vercel Edge, or CloudFront for static and semi-static content: images, scripts, marketing pages, and API responses that do <em>not</em> vary by logged-in user. If the edge can answer, your server never sees the request.</li>
+  <li><strong>Expensive DB-query cache:</strong> cache analytics, reporting, search facets, or multi-join aggregations. Invalidate on write when correctness matters; use TTL when stale-for-N-seconds is acceptable.</li>
+</ol>
+<div class="note">
+<strong>Rule of thumb:</strong> cache reads, not writes; never cache user-specific/private data at CDN level unless the cache key includes the user/tenant boundary correctly. Wrong cache key = data leak.
+</div>
+
 <p><strong>Audit prompt:</strong></p>
 <div class="copy-block">
 <pre><code>Audit this project for caching opportunities:
@@ -3842,6 +3853,27 @@ For each finding give file:line and a 1-line fix. Don't write code yet.</code></
    staleness tolerance | cache value | recommended TTL | recommended tool
 
 Don't add caching yet. Just produce the audit ranked by cache value.</code></pre>
+</div>
+
+<h4>30-second query triage — don&rsquo;t upgrade hardware first <span class="meta">(IG · 2026-06-13 · reel DXtsSUlD1hC · @kodekloud)</span></h4>
+<p>A 30-second four-table query is almost never fixed by moving to a bigger DB instance first. Hardware might turn 30s into 25s; the bad query is still bad. Diagnose before scaling up.</p>
+<ol>
+  <li><strong>Run <code>EXPLAIN ANALYZE</code> first.</strong> Look for sequential scans over large tables, ignored indexes, temp sorts, hash joins over huge row counts, and bad row-count estimates.</li>
+  <li><strong>Add targeted indexes, not indexes everywhere.</strong> Prioritize columns used in <code>WHERE</code>, <code>JOIN ON</code>, and <code>ORDER BY</code>. Use composite indexes matching real filter order; remember every index slows writes.</li>
+  <li><strong>Find N+1 in application code.</strong> 100 parent rows + one query per child set = 101 round trips. Fix with eager loading, joins, batched queries, or DataLoader-style batching.</li>
+  <li><strong>Fix bad joins and over-fetching.</strong> Join on indexed keys, select only needed columns, avoid <code>SELECT *</code> on wide tables, and paginate unbounded lists.</li>
+  <li><strong>Only then consider capacity.</strong> Bigger hardware is valid after the plan is sane and traffic actually needs it.</li>
+</ol>
+<div class="copy-block">
+<pre><code>Audit this project for slow database queries before upgrading infrastructure:
+
+1. Find DB queries with joins, aggregations, ORDER BY, COUNT(*), or unbounded list endpoints.
+2. For each query, report whether the WHERE / JOIN / ORDER BY columns have appropriate indexes.
+3. Look for N+1 patterns in application code: loops that trigger per-row queries, lazy-loaded relations, or repeated fetches.
+4. Flag SELECT * on wide tables and endpoints without pagination.
+5. For each issue output: file:line | suspected cost | EXPLAIN/ANALYZE command to run | index/app-layer fix | risk of over-indexing.
+
+Do not scale the DB or add indexes blindly. Produce the diagnosis first.</code></pre>
 </div>
 
 <h4>Cache stampede / thundering herd — when expiration goes wrong <span class="meta">(IG · 2026-05-30 · reel DYANfXqCYO0)</span></h4>
@@ -4368,6 +4400,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-06-13</td><td><strong>Expanded Section 14.2 — Performance &amp; scaling.</strong> From IG reels DZfT4d5AiWg (@mattmurphyai) and DXtsSUlD1hC (@kodekloud). Added the 3-layer cache stack (API response cache / CDN edge / expensive DB-query cache) and a 30-second query triage checklist using EXPLAIN ANALYZE, targeted indexes, N+1 detection, and select/pagination fixes.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 17.8 — Understanding + verification gate before prod.</strong> From IG reel DZf_wAWzBL3 (@buildinghappi). Captures the “Claude made me faster than I understand” risk and adds a 4-question security/efficiency/regression/tests prompt for AI-built features.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 17.7 — Post-feature cleanup pass.</strong> From IG reel DZdboxvTqnm (@buildinghappi). Captures the “ask Claude to delete/simplify after feature work” workflow, dead-code/duplicate-logic checklist, safe-cleanup prompt, and reel-index entry.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 9.9 — Success states &amp; confirmation feedback.</strong> From IG reel DZYfsYPv1-l (@synsation_). Covers explicit vs inline success states, high-stakes confirmations, duplicate-submit prevention, implementation checklist, and a Claude audit prompt; added reel-index entry.</td></tr>
