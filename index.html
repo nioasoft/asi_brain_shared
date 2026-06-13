@@ -475,6 +475,7 @@
         <li><a href="#ai-workflow">17.4 The /raw → /wiki workflow (concrete example)</a></li>
         <li><a href="#ai-workflow">17.5 Ready prompts (copy-paste)</a></li>
         <li><a href="#ai-workflow-wiki-deep">17.6 The Wiki Layer — deep dive (Obsidian + structuring agent)</a></li>
+        <li><a href="#ai-workflow-cleanup-pass">17.7 Post-feature cleanup pass — ask Claude to delete code</a></li>
       </ol>
     </li>
   </ol>
@@ -4026,6 +4027,9 @@ function SearchBox() {
 
 <h3>14.4 LLM &amp; agent infrastructure</h3>
 
+<h4>Post-feature cleanup pass — ask Claude to delete code <span class="meta">(IG · 2026-06-13 · reel DZdboxvTqnm · @buildinghappi)</span></h4>
+<p>After vibe-coding a feature, run a separate deletion-focused review for dead code, duplicate logic, unused components, stale tests, and unnecessary complexity. Added workflow + prompts at <a href="#ai-workflow-cleanup-pass">Section 17.7 — Post-feature cleanup pass</a>.</p>
+
 <h4>Giscard / LLM Guard / Rebuff <span class="meta">(IG · 2026-05-17, re-sent 2026-05-29 · reel DXQiWMVDfXg)</span></h4>
 <p>3 LLM-app security tools. Originally captured 2026-05-17; Asi re-shared the same reel on 2026-05-29 (already in the doc). See <a href="#tools-watching">Section 10.3 — Tools to evaluate</a> for the full breakdown.</p>
 
@@ -4360,6 +4364,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-06-13</td><td><strong>Added Section 17.7 — Post-feature cleanup pass.</strong> From IG reel DZdboxvTqnm (@buildinghappi). Captures the “ask Claude to delete/simplify after feature work” workflow, dead-code/duplicate-logic checklist, safe-cleanup prompt, and reel-index entry.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 9.9 — Success states &amp; confirmation feedback.</strong> From IG reel DZYfsYPv1-l (@synsation_). Covers explicit vs inline success states, high-stakes confirmations, duplicate-submit prevention, implementation checklist, and a Claude audit prompt; added reel-index entry.</td></tr>
 <tr><td>2026-06-06</td><td><strong>Added Section 19 — Mobile deep links.</strong> From IG reel DZLHBM9xY33. Covers Apple Universal Links, Android App Links, Expo/React Native linking, web fallback when the app is not installed, smart install banners, verification commands, and a Claude audit prompt for future mobile apps.</td></tr>
 <tr><td>2026-06-06</td><td><strong>Added Section 18 — Webhook delivery architecture.</strong> Integrated IG reel DZKq0TiRiij into the shared GitHub-backed HTML instead of a standalone local note. Added outbox → dispatcher → workers → DLQ/replay architecture, HMAC signing checklist, audit prompt, and reel-index entry.</td></tr>
@@ -4820,6 +4825,60 @@ Audit policy (run monthly when I say "audit wiki"):
 </ul>
 <p>Both are syntheses of Karpathy&rsquo;s public talks and posts, not direct quotes from him.</p>
 
+
+
+<h3 id="ai-workflow-cleanup-pass">17.7 Post-feature cleanup pass — ask Claude to delete code <span class="meta">(IG reel DZdboxvTqnm · 2026-06-13)</span></h3>
+
+<p>The reel&rsquo;s useful point is simple: after vibe coding a feature, the most valuable prompt is often not “write more code” — it is <strong>“find what you just made unnecessary and remove it.”</strong> AI-assisted feature work tends to leave behind unused files, duplicated logic, half-replaced components, and abstractions that technically work but nobody understands anymore.</p>
+
+<h4>Why this matters</h4>
+<ul>
+  <li><strong>Feature velocity hides entropy:</strong> adding a feature in an hour feels productive, but every feature can leave a small mess.</li>
+  <li><strong>AI tools over-create:</strong> they often add new helpers/components instead of noticing an existing one can be reused or deleted.</li>
+  <li><strong>Working code is not necessarily maintainable code:</strong> duplicated logic and stale branches become future bugs.</li>
+  <li><strong>Cleanup must be a separate pass:</strong> if you mix “build feature” and “delete complexity” in one prompt, the model optimizes for shipping the feature and misses the cleanup.</li>
+</ul>
+
+<h4>The workflow</h4>
+<ol>
+  <li><strong>Finish the feature first.</strong> Run the app/tests enough to know the feature works.</li>
+  <li><strong>Commit or stash a checkpoint.</strong> Cleanup is easier when you can revert only the cleanup pass.</li>
+  <li><strong>Run a deletion-focused review.</strong> Ask for dead code, unused components, duplicate logic, unnecessary wrappers, and over-complicated state.</li>
+  <li><strong>Apply only low-risk deletions first.</strong> Remove unused files/imports/branches before attempting deeper refactors.</li>
+  <li><strong>Run tests/build again.</strong> The cleanup pass is not done until the same verification still passes.</li>
+  <li><strong>Commit cleanup separately.</strong> Feature commit and cleanup commit should be readable independently.</li>
+</ol>
+
+<h4>Claude prompt</h4>
+<div class="copy-block">
+<pre><code>I just finished implementing a feature. Before adding anything else, audit the current diff for code that should be deleted or simplified.
+
+Focus on:
+1. Dead code: unused files, unused exports, unreachable branches, old components replaced by the new feature.
+2. Duplicate logic: functions/components/hooks that now do the same thing in two places.
+3. Unnecessary complexity: wrappers, abstractions, state variables, effects, or config added “just in case.”
+4. Confusing code that technically works but will be hard to maintain.
+5. Tests/mocks/fixtures that are now stale or redundant.
+
+For each finding, output:
+- file:line
+- delete / simplify / keep
+- why it is safe
+- exact minimal change
+
+Do not add new functionality. Prefer deletion over refactor. Do not edit yet; report first.</code></pre>
+</div>
+
+<h4>Optional one-shot cleanup command after the report</h4>
+<div class="copy-block">
+<pre><code>Apply only the SAFE cleanup items from your report:
+- remove unused imports/files/branches
+- consolidate exact duplicate logic
+- do not change behavior
+- do not introduce new abstractions
+
+After editing, run the project&rsquo;s existing typecheck/tests/build and show the real output.</code></pre>
+</div>
 </div>
 </section>
 
