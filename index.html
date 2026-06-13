@@ -476,6 +476,7 @@
         <li><a href="#ai-workflow">17.5 Ready prompts (copy-paste)</a></li>
         <li><a href="#ai-workflow-wiki-deep">17.6 The Wiki Layer — deep dive (Obsidian + structuring agent)</a></li>
         <li><a href="#ai-workflow-cleanup-pass">17.7 Post-feature cleanup pass — ask Claude to delete code</a></li>
+        <li><a href="#ai-workflow-verification-gate">17.8 Understanding + verification gate before prod</a></li>
       </ol>
     </li>
   </ol>
@@ -4030,6 +4031,9 @@ function SearchBox() {
 <h4>Post-feature cleanup pass — ask Claude to delete code <span class="meta">(IG · 2026-06-13 · reel DZdboxvTqnm · @buildinghappi)</span></h4>
 <p>After vibe-coding a feature, run a separate deletion-focused review for dead code, duplicate logic, unused components, stale tests, and unnecessary complexity. Added workflow + prompts at <a href="#ai-workflow-cleanup-pass">Section 17.7 — Post-feature cleanup pass</a>.</p>
 
+<h4>Claude made me worse — understanding + verification gate <span class="meta">(IG · 2026-06-13 · reel DZf_wAWzBL3 · @buildinghappi)</span></h4>
+<p>AI coding speed creates a trap: the feature works, so you move on before understanding security, efficiency, regressions, and tests. Added a 4-question pre-prod verification prompt at <a href="#ai-workflow-verification-gate">Section 17.8 — Understanding + verification gate</a>.</p>
+
 <h4>Giscard / LLM Guard / Rebuff <span class="meta">(IG · 2026-05-17, re-sent 2026-05-29 · reel DXQiWMVDfXg)</span></h4>
 <p>3 LLM-app security tools. Originally captured 2026-05-17; Asi re-shared the same reel on 2026-05-29 (already in the doc). See <a href="#tools-watching">Section 10.3 — Tools to evaluate</a> for the full breakdown.</p>
 
@@ -4364,6 +4368,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-06-13</td><td><strong>Added Section 17.8 — Understanding + verification gate before prod.</strong> From IG reel DZf_wAWzBL3 (@buildinghappi). Captures the “Claude made me faster than I understand” risk and adds a 4-question security/efficiency/regression/tests prompt for AI-built features.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 17.7 — Post-feature cleanup pass.</strong> From IG reel DZdboxvTqnm (@buildinghappi). Captures the “ask Claude to delete/simplify after feature work” workflow, dead-code/duplicate-logic checklist, safe-cleanup prompt, and reel-index entry.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 9.9 — Success states &amp; confirmation feedback.</strong> From IG reel DZYfsYPv1-l (@synsation_). Covers explicit vs inline success states, high-stakes confirmations, duplicate-submit prevention, implementation checklist, and a Claude audit prompt; added reel-index entry.</td></tr>
 <tr><td>2026-06-06</td><td><strong>Added Section 19 — Mobile deep links.</strong> From IG reel DZLHBM9xY33. Covers Apple Universal Links, Android App Links, Expo/React Native linking, web fallback when the app is not installed, smart install banners, verification commands, and a Claude audit prompt for future mobile apps.</td></tr>
@@ -4878,6 +4883,47 @@ Do not add new functionality. Prefer deletion over refactor. Do not edit yet; re
 - do not introduce new abstractions
 
 After editing, run the project&rsquo;s existing typecheck/tests/build and show the real output.</code></pre>
+</div>
+
+<h3 id="ai-workflow-verification-gate">17.8 Understanding + verification gate before prod <span class="meta">(IG reel DZf_wAWzBL3 · 2026-06-13)</span></h3>
+
+<p>The reel&rsquo;s useful warning: Claude can make you ship faster than you understand. The dangerous part is not that the model writes bad code by default; it is that a working feature can trick you into treating understanding as optional. The feature works, the API responds, the UI looks right — but you have not yet checked security, scale, maintainability, regressions, or test coverage.</p>
+
+<div class="note">
+<strong>Rule:</strong> every AI-built feature needs a verification gate before production. Do not ask Claude only “does it work?” Ask what could break, leak data, slow down, confuse the next developer, or regress existing behavior.
+</div>
+
+<h4>The 4-question gate</h4>
+<ol>
+  <li><strong>Security:</strong> Did you build this in the most secure way? What user data or privileged action could be exposed if one assumption is wrong?</li>
+  <li><strong>Efficiency:</strong> Did you build this in the most efficient way for the expected traffic/data size? Where are the expensive queries, loops, network calls, or re-renders?</li>
+  <li><strong>Regressions:</strong> What existing behavior could this change or break? Which routes/components/API contracts are now at risk?</li>
+  <li><strong>Tests:</strong> What tests do we need before shipping this? Include happy path, permission failures, edge cases, and regression tests around touched behavior.</li>
+</ol>
+
+<h4>When to run it</h4>
+<ul>
+  <li>After the feature works locally, before merging/deploying.</li>
+  <li>Before the cleanup pass in Section 17.7 if you suspect the feature architecture is shaky.</li>
+  <li>After the cleanup pass if deletion/refactor changed behavior.</li>
+  <li>Always on client projects that touch auth, payments, personal data, file uploads, integrations, or background jobs.</li>
+</ul>
+
+<h4>Claude prompt</h4>
+<div class="copy-block">
+<pre><code>I just finished an AI-assisted feature. Before we ship, run a verification gate on the current diff. Do not edit yet; report first with file:line evidence.
+
+Answer these four questions:
+1. Security — was this built in the most secure way? What user data, auth boundary, secret, admin action, or tenant boundary could be exposed?
+2. Efficiency — was this built in the most efficient way for expected traffic/data size? Flag expensive queries, N+1 patterns, unnecessary network calls, heavy client work, and missing indexes/caching.
+3. Regressions — what existing behavior could this introduce regressions into? List affected routes/components/API contracts and why.
+4. Tests — what tests must exist before shipping? Include happy path, permission failures, edge cases, and regression tests.
+
+Output format:
+- PASS / RISK / BLOCKER per category
+- file:line evidence
+- exact test(s) to add
+- top 3 fixes before production</code></pre>
 </div>
 </div>
 </section>
