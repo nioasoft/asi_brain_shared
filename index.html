@@ -431,7 +431,8 @@
         <li><a href="#ux-empty-states">9.6 Empty states (Part 8)</a></li>
         <li><a href="#ux-loading">9.7 Loading patterns (Part 3)</a></li>
         <li><a href="#ux-partial-states">9.8 Partial states &amp; graceful degradation (Part 9)</a></li>
-        <li><a href="#ux-patterns">9.9 Coming in future reels (placeholders)</a></li>
+        <li><a href="#ux-success-states">9.9 Success states &amp; confirmation feedback (Part 11)</a></li>
+        <li><a href="#ux-patterns">9.10 Coming in future reels (placeholders)</a></li>
       </ol>
     </li>
   </ol>
@@ -3032,7 +3033,53 @@ grep -rEn '&lt;Suspense' --include="*.tsx" -c . | sort -t: -k2 -n
   <li><strong>Default for new screens with 3+ data sources</strong> → graceful degradation. It&rsquo;s rarely the wrong call.</li>
 </ul>
 
-<h3>9.9 Coming in future reels (placeholders)</h3>
+<h3 id="ux-success-states">9.9 Success states &amp; confirmation feedback (Part 11 — reel DZYfsYPv1-l)</h3>
+
+<p>When a user completes an action, the interface must confirm that it worked. Missing success feedback creates the worst kind of product anxiety: <em>"Did it go through? Was I charged? Should I click again?"</em></p>
+
+<h4>The principle</h4>
+
+<blockquote><strong>Every meaningful user action needs an observable success state. The higher the stakes, the more explicit the confirmation must be.</strong></blockquote>
+
+<table>
+<tr><th>Action type</th><th>Good success feedback</th><th>Bad default</th></tr>
+<tr><td><strong>Payment / booking / irreversible action</strong></td><td>Dedicated confirmation page or panel with receipt/order ID, next step, and email expectation.</td><td>Button returns to normal with no confirmation — user wonders if they were charged.</td></tr>
+<tr><td><strong>Form submit / save</strong></td><td>Inline saved indicator, toast with specific object name, or updated timestamp.</td><td>Silent submit; user clicks again or navigates away unsure.</td></tr>
+<tr><td><strong>Low-risk interaction</strong> (like, star, drag card)</td><td>The action itself visibly persists: liked state stays active, card remains in Done, item appears in list.</td><td>Temporary animation only, then no durable visual evidence.</td></tr>
+<tr><td><strong>Milestone / major completion</strong></td><td>Celebratory state can be appropriate: completion page, progress unlocked, small animation/confetti.</td><td>Overusing confetti for trivial actions, which makes the app feel noisy and unserious.</td></tr>
+</table>
+
+<h4>Implementation checklist for client apps</h4>
+
+<ul>
+  <li><strong>Define success per action:</strong> what must be true before the UI can honestly say "done"? For payments/orders, do not show success before the critical write/payment confirmation is durable.</li>
+  <li><strong>Make it persistent enough:</strong> a 2-second toast is not enough for high-stakes actions. Show a durable confirmation page/row/status that survives refresh.</li>
+  <li><strong>Prevent duplicate actions:</strong> disable the submit button while pending, use idempotency keys for writes/payments, and show a clear post-success state.</li>
+  <li><strong>Match the emotional weight:</strong> subtle inline feedback for tiny actions; explicit confirmation for money, bookings, destructive actions, and first milestones.</li>
+  <li><strong>Include recovery path:</strong> after success, provide the next useful action: view receipt, manage booking, create another item, go back to dashboard.</li>
+</ul>
+
+<h4>Claude audit prompt</h4>
+
+<div class="copy-block">
+<pre><code>Audit this app for missing success states.
+
+For every user action that mutates data or triggers an external effect:
+1. Identify the action and file:line.
+2. Classify risk: low / medium / high-stakes (money, booking, destructive, irreversible).
+3. Check whether success is visible and durable enough:
+   - button/loading state while pending
+   - confirmation after completion
+   - persistent state after refresh when relevant
+   - duplicate-submit prevention
+   - next-step guidance
+4. For each gap, suggest the smallest UX/code fix.
+
+Pay special attention to payments, bookings, forms, uploads, account changes, and destructive actions.
+Do not change code yet. Output an audit table.</code></pre>
+</div>
+
+<h3>9.10 Coming in future reels (placeholders)</h3>
 
 <p>Same series promises more parts. Asi will send when found.</p>
 
@@ -3041,16 +3088,18 @@ grep -rEn '&lt;Suspense' --include="*.tsx" -c . | sort -t: -k2 -n
 <tr><td><strong>1</strong></td><td><strong>UI vs UX — the foundation</strong></td><td><span class="pill ok">documented (9.6)</span></td></tr>
 <tr><td><strong>2</strong></td><td><strong>The 4 states + loading history</strong></td><td><span class="pill ok">documented (9.8)</span></td></tr>
 <tr><td><strong>3</strong></td><td><strong>Loading patterns</strong></td><td><span class="pill ok">documented (9.7)</span></td></tr>
-<tr><td>4</td><td>(unknown — possibly success states)</td><td><span class="pill warn">missed</span></td></tr>
+<tr><td>4</td><td>(unknown — possibly success states)</td><td><span class="pill warn">still missing original Part 4</span></td></tr>
 <tr><td><strong>5</strong></td><td><strong>Error states</strong></td><td><span class="pill ok">documented (9.6)</span></td></tr>
 <tr><td><strong>6</strong></td><td><strong>Forms</strong></td><td><span class="pill ok">documented (9.8)</span></td></tr>
 <tr><td><strong>7</strong></td><td><strong>Error placement (toast vs modal vs inline)</strong></td><td><span class="pill ok">documented (9.7)</span></td></tr>
 <tr><td><strong>8</strong></td><td><strong>Empty states</strong></td><td><span class="pill ok">documented (9.6)</span></td></tr>
 <tr><td><strong>9</strong></td><td><strong>Partial states &amp; graceful degradation</strong></td><td><span class="pill ok">documented (9.8)</span></td></tr>
-<tr><td>10+</td><td>Inline spinners deep-dive (teased in reel 3 — "different kinds, psychology")</td><td><span class="pill info">teased, watch for it</span></td></tr>
+<tr><td>10</td><td>Inline spinners deep-dive (teased in reel 3 — "different kinds, psychology")</td><td><span class="pill info">teased, watch for it</span></td></tr>
+<tr><td><strong>11</strong></td><td><strong>Success states &amp; confirmation feedback</strong></td><td><span class="pill ok">documented (9.9)</span></td></tr>
+<tr><td>12</td><td>Jakob&rsquo;s Law (teased at end of Part 11)</td><td><span class="pill info">teased, watch for it</span></td></tr>
 </table>
 
-<p>If Asi finds Parts 2, 4, 7 (and Part 9 / inline-spinners when they drop) on the same creator&rsquo;s profile, send them and I&rsquo;ll add each here.</p>
+<p>If Asi finds the missing original Part 4, inline-spinners deep-dive, Jakob&rsquo;s Law, or later parts on the same creator&rsquo;s profile, send them and I&rsquo;ll add each here.</p>
 </div>
 </section>
 
@@ -4028,6 +4077,9 @@ function SearchBox() {
 
 <h3>14.7 UX patterns</h3>
 
+<h4>Success states &amp; confirmation feedback <span class="meta">(IG · 2026-06-13 · reel DZYfsYPv1-l · @synsation_)</span></h4>
+<p>Every meaningful user action needs observable success feedback; high-stakes actions need durable confirmation pages/panels, while low-risk interactions can use persistent inline state. Added checklist + Claude audit prompt at <a href="#ux-success-states">Section 9.9 — Success states &amp; confirmation feedback</a>.</p>
+
 <h4>Mobile deep links / Universal Links <span class="meta">(IG · 2026-06-06 · reel DZLHBM9xY33 · @mattmurphyai)</span></h4>
 <p>Shared mobile content links should open the app when installed and fall back to the web page when not installed. Added Apple Universal Links, Android App Links, Expo/React Native config, smart-banner fallback, and audit prompt at <a href="#mobile-deep-links">Section 19 — Mobile deep links</a>.</p>
 
@@ -4308,6 +4360,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-06-13</td><td><strong>Added Section 9.9 — Success states &amp; confirmation feedback.</strong> From IG reel DZYfsYPv1-l (@synsation_). Covers explicit vs inline success states, high-stakes confirmations, duplicate-submit prevention, implementation checklist, and a Claude audit prompt; added reel-index entry.</td></tr>
 <tr><td>2026-06-06</td><td><strong>Added Section 19 — Mobile deep links.</strong> From IG reel DZLHBM9xY33. Covers Apple Universal Links, Android App Links, Expo/React Native linking, web fallback when the app is not installed, smart install banners, verification commands, and a Claude audit prompt for future mobile apps.</td></tr>
 <tr><td>2026-06-06</td><td><strong>Added Section 18 — Webhook delivery architecture.</strong> Integrated IG reel DZKq0TiRiij into the shared GitHub-backed HTML instead of a standalone local note. Added outbox → dispatcher → workers → DLQ/replay architecture, HMAC signing checklist, audit prompt, and reel-index entry.</td></tr>
 <tr><td>2026-06-01 (cleanup pass)</td><td><strong>Doc hygiene per Asi&rsquo;s request — verify-quality-non-redundant standard now enforced.</strong> Section 9 renumbered to sequential 9.1-9.9 (was 9.0/9.0.5/9.1/9.1.5/9.2-9.6 — confusing). Section 13 renumbered (subsections were stuck at "5.1-5.5" from old restructure). Section 10.3 (Tools to evaluate) gained a top-of-section status table for quick scan. Section 14: deleted 5 worthless entries (Forge 8B clickbait, "Faction" service ad, unnamed-toolkit promo, Layer 5 / Layer 12 re-shares). Renamed Forge 8B in 10.3 to "LLM scaffolding pattern" — kept the useful principle, dropped the clickbait framing.</td></tr>
