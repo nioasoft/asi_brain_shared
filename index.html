@@ -294,7 +294,7 @@
 <header>
   <h1>Security &amp; Code-Quality Reference</h1>
   <div class="subtitle">For Asi's Next.js client projects + crypto bot infrastructure</div>
-  <span class="updated">Last updated: 2026-05-23 · Living document — append new findings as we learn them</span>
+  <span class="updated">Last updated: 2026-06-19 · Living document — append new findings as we learn them</span>
 </header>
 
 <nav class="toc">
@@ -415,6 +415,7 @@
         <li><a href="#deploy-environments">8.8 When to graduate from Vercel (and where to)</a></li>
         <li><a href="#deploy-environments">8.9 CI/CD maturity ladder (5 rungs from solo to canary)</a></li>
         <li><a href="#deploy-environments">8.10 Product analytics (PostHog / Amplitude — what users actually do)</a></li>
+        <li><a href="#deploy-environments">8.11 Global latency playbook (edge frontend + read replicas)</a></li>
       </ol>
     </li>
   </ol>
@@ -2418,6 +2419,85 @@ posthog.capture("error_shown_to_user", { message, page });</code></pre>
 Don&rsquo;t install yet. Just the plan.</code></pre>
 </div>
 
+
+<h3>8.11 Global latency playbook — edge frontend + read replicas</h3>
+
+<p>Source: IG reel <code>DZCzQPpRI8d</code> (2026-06-19, @mattmurphyai). The reel&rsquo;s useful claim: if the app runs from one server/DB region (for example Virginia) and users are in Singapore, Israel, Europe, etc., 3–5 second page loads are often an <strong>architecture latency problem</strong>, not a random bug.</p>
+
+<div class="note">
+<strong>Important framing for Asi:</strong> this is a <strong>recommendation / future scaling pattern</strong>, not a mandatory rule for every Next.js project. Do <strong>not</strong> add multi-region complexity to a brochure site, MVP, or client app whose users are mostly in one country. Use it when real traffic or product requirements show meaningful users in multiple regions and latency is hurting UX or conversion.
+</div>
+
+<h4>The 3-part pattern</h4>
+<table>
+<tr><th>Layer</th><th>Recommendation</th><th>What it fixes</th></tr>
+<tr>
+  <td><strong>Frontend</strong></td>
+  <td>Deploy static assets / frontend to <strong>Vercel</strong> or <strong>Cloudflare Pages</strong>.</td>
+  <td>HTML/CSS/JS/images load from an edge location near the user instead of a far-away origin.</td>
+</tr>
+<tr>
+  <td><strong>Database reads</strong></td>
+  <td>Add <strong>Supabase read replicas</strong> or equivalent Postgres replicas in regions near users.</td>
+  <td>Read-heavy pages stop round-tripping every query to the primary DB region.</td>
+</tr>
+<tr>
+  <td><strong>Routing</strong></td>
+  <td>Use <strong>Vercel Edge Middleware</strong> or <strong>Cloudflare Workers</strong> to route by geography.</td>
+  <td>Reads go to the nearest replica; writes still go to the primary DB to keep consistency simple.</td>
+</tr>
+</table>
+
+<h4>Decision rule — when to use vs skip</h4>
+<table>
+<tr><th>Use this pattern when</th><th>Skip / postpone when</th></tr>
+<tr>
+  <td>Users are meaningfully split across regions: Israel + US + EU, or Asia/Australia users feel slow.</td>
+  <td>Nearly all users are in Israel / one region; choose the closest single DB region instead.</td>
+</tr>
+<tr>
+  <td>The app is read-heavy: dashboards, catalogs, content, CRM views, analytics, feeds.</td>
+  <td>The app is mostly writes, payments, admin mutations, or single-user backoffice flows.</td>
+</tr>
+<tr>
+  <td>You can tolerate slightly stale reads for some data or explicitly route “read after write” to primary.</td>
+  <td>The product requires strict immediate consistency on every screen and the team is not ready to reason about replica lag.</td>
+</tr>
+<tr>
+  <td>Latency is measured and hurting UX: Web Vitals / server timing / logs show cross-region DB round trips.</td>
+  <td>No measured latency problem yet — complexity would be premature optimization.</td>
+</tr>
+</table>
+
+<h4>Implementation notes for Next.js + Supabase</h4>
+<ul>
+  <li><strong>This is not a Next.js replacement.</strong> Next.js stays the app framework; this is a deployment/data topology upgrade around it.</li>
+  <li><strong>Separate read vs write paths.</strong> Queries that render public/read-heavy pages can use the nearest read replica. Mutations, checkout, auth-sensitive “save then show me the result” flows should use the primary DB or force a primary read immediately after write.</li>
+  <li><strong>Protect tenant/user boundaries.</strong> Read replicas do not replace RLS, authorization checks, or correct cache keys. A fast data leak is still a data leak.</li>
+  <li><strong>Prefer measurement before migration.</strong> Add timing logs around server actions/API routes and DB queries before paying for replicas.</li>
+</ul>
+
+<h4>Pre-upgrade audit prompt</h4>
+<div class="copy-block">
+<pre><code>This project may have users in multiple regions. Audit whether a global-latency
+upgrade is worth it. Do not change infrastructure yet.
+
+1. Identify where users are located from analytics/logs/customer data.
+2. Identify the current deployment region(s): frontend host, server/API runtime,
+   primary database, object storage, external APIs.
+3. Measure slow paths: pages/API routes with p95 > 1s, DB queries, and external calls.
+4. Classify each slow path as READ, WRITE, or MIXED.
+5. Recommend one of:
+   - STAY SINGLE-REGION: no real multi-region need yet.
+   - MOVE PRIMARY REGION: users are concentrated somewhere else; choose a better single region.
+   - ADD EDGE/CACHE ONLY: static/API caching solves most latency.
+   - ADD READ REPLICAS + GEO ROUTING: users are truly multi-region and read-heavy.
+6. For any replica recommendation, list read-after-write screens that must keep
+   using the primary or show an explicit refresh/pending state.
+
+Output: recommendation | evidence | expected latency win | complexity risk | next safe step.</code></pre>
+</div>
+
 </div>
 </section>
 
@@ -4112,6 +4192,9 @@ function SearchBox() {
 <h4>Product analytics — what users actually do <span class="meta">(IG · 2026-05-31 · reel DY2zZvMsVzj)</span></h4>
 <p>Reel pitches Amplitude. The need is real and almost always missing in client deliveries — "product analytics" (PostHog/Amplitude) is different from "site analytics" (Plausible/GA). 3 tools table + minimum-useful event set + weekly review checklist + Asi-specific guidance (PostHog default for client apps; skip for brochure sites; not applicable for bots) + pre-delivery audit prompt at <a href="#deploy-environments">Section 8.10</a>.</p>
 
+<h4>Global latency playbook — edge frontend + read replicas <span class="meta">(IG · 2026-06-19 · reel DZCzQPpRI8d · @mattmurphyai)</span></h4>
+<p>If users are far from the app&rsquo;s single server/DB region, slow pages may be architecture latency: deploy frontend/static assets to Vercel or Cloudflare edge, add Supabase/Postgres read replicas near users, and route reads geographically while writes stay on primary. Captured as a <strong>recommendation, not a default requirement</strong>; only use after measuring multi-region traffic/latency. Full decision rule + audit prompt at <a href="#deploy-environments">Section 8.11</a>.</p>
+
 <h4>2GB Docker image = your business problem <span class="meta">(IG · 2026-05-29 · reel DXYh9CHihnt)</span></h4>
 <p>Multi-stage builds, alpine/distroless base images, <code>.dockerignore</code>. Asi&rsquo;s typical Vercel/Mac mini workflow doesn&rsquo;t need this — relevant if a bot moves to Railway, a client wants self-hosted, or building MCP servers. Minimum Dockerfile + .dockerignore + verification commands at <a href="#deploy-environments">Section 8.7</a>.</p>
 
@@ -4400,6 +4483,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-06-19</td><td><strong>Added Section 8.11 — Global latency playbook.</strong> From IG reel DZCzQPpRI8d (@mattmurphyai). Captures edge frontend + Supabase/Postgres read replicas + geo-aware routing as a recommendation for measured multi-region latency, not a mandatory default for every Next.js project. Added use/skip decision table, Next.js/Supabase implementation notes, audit prompt, and reel-index entry.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Expanded Section 14.2 — Performance &amp; scaling.</strong> From IG reels DZfT4d5AiWg (@mattmurphyai) and DXtsSUlD1hC (@kodekloud). Added the 3-layer cache stack (API response cache / CDN edge / expensive DB-query cache) and a 30-second query triage checklist using EXPLAIN ANALYZE, targeted indexes, N+1 detection, and select/pagination fixes.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 17.8 — Understanding + verification gate before prod.</strong> From IG reel DZf_wAWzBL3 (@buildinghappi). Captures the “Claude made me faster than I understand” risk and adds a 4-question security/efficiency/regression/tests prompt for AI-built features.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 17.7 — Post-feature cleanup pass.</strong> From IG reel DZdboxvTqnm (@buildinghappi). Captures the “ask Claude to delete/simplify after feature work” workflow, dead-code/duplicate-logic checklist, safe-cleanup prompt, and reel-index entry.</td></tr>
