@@ -316,6 +316,8 @@
         <li><a href="#step-4">2.4 One-command quality pass (<code>/security-review</code> + <code>/simplify</code>)</a></li>
         <li><a href="#step-5">2.5 The "AI made this and ship today" 5-check list</a></li>
         <li><a href="#step-6">2.6 Leaked-secret incident response (rotate first, scrub second)</a></li>
+        <li><a href="#step-7">2.7 OWASP ZAP pre-launch scan</a></li>
+        <li><a href="#step-8">2.8 Exposed <code>.git</code> directory check</a></li>
       </ol>
     </li>
     <li><a href="#api-claims">OWASP-grounded API security claims (fact-checked)</a></li>
@@ -930,6 +932,92 @@ done</code></pre>
 
 <div class="note">
 <strong>The hard truth:</strong> rewriting git history breaks collaborators&rsquo; clones. If your repo has multiple contributors, you need to coordinate the force-push and have everyone re-clone. That coordination overhead is real — which is why preventing the leak via pre-commit hooks is far cheaper than fixing it after.
+</div>
+
+<h3 id="step-7">2.7 OWASP ZAP pre-launch scan</h3>
+<p>Source: IG reel <code>DZyEXA6vDXs</code> (2026-06-20, @mattmurphyai). The useful addition is operational: run a real web-app scanner <strong>before</strong> the first user signs up, then triage critical/high findings first instead of drowning in the whole report.</p>
+
+<h4>What ZAP is good at</h4>
+<ul>
+  <li><strong>OWASP ZAP</strong> is a free, open-source dynamic application security scanner.</li>
+  <li>It crawls pages, submits forms, probes API endpoints, and flags common issues: XSS, SQL injection, missing security headers, open redirects, exposed sensitive data, and auth/session misconfigurations.</li>
+  <li>It finds the same broad classes of issues automated internet scanners look for. Better that you find them before bots do.</li>
+</ul>
+
+<h4>Safe default workflow</h4>
+<ol>
+  <li>Run against <strong>staging</strong> or a disposable preview deployment first, not production with real user data.</li>
+  <li>Use baseline/passive scan for normal client sites; active scan only when you control the target and can tolerate form submissions / test traffic.</li>
+  <li>Fix findings by severity: Critical/High first (injection, auth bypass, sensitive exposure), then Medium/Low as scheduled hardening.</li>
+  <li>Keep the report as delivery evidence: date, target URL, scan mode, high/critical count, and fixed items.</li>
+</ol>
+
+<div class="copy-block">
+<pre><code># Baseline passive scan (safe first pass; official ZAP container)
+docker run --rm -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+  -t https://staging.example.com -r zap-report.html
+
+# If your install uses a different ZAP image/CLI, keep the same idea:
+# baseline/passive before launch, active only with explicit authorization.</code></pre>
+</div>
+
+<h4>Claude audit prompt</h4>
+<div class="copy-block">
+<pre><code>Prepare an OWASP ZAP pre-launch security pass for this project.
+
+1. Identify the correct staging/preview URL and whether it has test-only data.
+2. Recommend passive baseline scan vs active scan. If active scan could submit forms,
+   say exactly what must be disabled or seeded first.
+3. After I provide the ZAP report, triage findings by:
+   - Critical/High: fix before launch
+   - Medium: fix if cheap or schedule before handoff
+   - Low/Informational: document, don't block launch unless easy
+4. For each Critical/High finding, map it to a concrete file/route/config fix.
+5. Output: finding | severity | evidence URL | likely code location | recommended fix | launch blocker?</code></pre>
+</div>
+
+<h3 id="step-8">2.8 Exposed <code>.git</code> directory check</h3>
+<p>Source: IG reel <code>DZxv4ukyGmN</code> (2026-06-20, @runtimebug). Failure mode: a deploy copies the entire working folder to the web server, including the hidden <code>.git</code> directory. Directory listing can be disabled and the repo is still recoverable because <code>.git</code> filenames are predictable.</p>
+
+<div class="note">
+<strong>Why this matters:</strong> Git contains history, not just current files. A password deleted two years ago can still be extracted from old objects if <code>.git</code> is served publicly. If this ever happened, rotate any committed secret; deleting it later does nothing.
+</div>
+
+<h4>One-minute check</h4>
+<div class="copy-block">
+<pre><code># Replace with the site you are auditing. Any 200/3xx that returns Git metadata is a fail.
+curl -i https://example.com/.git/HEAD
+curl -i https://example.com/.git/config
+
+# PASS: 403/404 and no Git content.
+# FAIL examples: "ref: refs/heads/main" or repository config content.</code></pre>
+</div>
+
+<h4>Prevention</h4>
+<ul>
+  <li><strong>Deploy a build artifact, not the raw repo.</strong> For Next.js/Vite/etc., the server should receive the generated build output and required runtime files, not your project root.</li>
+  <li><strong>Block dot-directories at the web server/CDN:</strong> deny <code>/.git/*</code>, <code>/.env</code>, and other hidden files by default.</li>
+  <li><strong>Use explicit deploy allowlists:</strong> copy only <code>dist/</code>, <code>.next/</code> + required package files, or Docker image contents. Avoid <code>scp -r .</code> into a public web root.</li>
+  <li><strong>If exposed:</strong> assume full source + history leaked, rotate every secret ever committed, then remove exposure and scrub history as in <a href="#step-6">Section 2.6</a>.</li>
+</ul>
+
+<h4>Claude audit prompt</h4>
+<div class="copy-block">
+<pre><code>Audit this deployed site/repo for accidental source exposure.
+
+1. For each public URL/environment, check:
+   - /.git/HEAD
+   - /.git/config
+   - /.env
+   - /package.json
+   - /src/ or other obvious source paths
+2. Inspect deployment config (Vercel/Railway/Nginx/Apache/Docker/GitHub Actions):
+   confirm it ships a clean build artifact, not the raw working directory.
+3. Report any server rule that blocks dotfiles/dot-directories.
+4. If .git or .env is exposed, treat as incident:
+   rotate secrets first, remove exposure second, then scrub history.
+
+Output: URL/path | HTTP status | evidence | risk | exact fix.</code></pre>
 </div>
 
 </div>
@@ -3819,6 +3907,12 @@ For each finding give file:line and a 1-line fix. Don't write code yet.</code></
 
 <h3>14.1 Security-related reels</h3>
 
+<h4>OWASP ZAP before launch <span class="meta">(IG · 2026-06-20 · reel DZyEXA6vDXs · @mattmurphyai)</span></h4>
+<p>Run a baseline/passive OWASP ZAP scan before launch, triage Critical/High findings first, and keep the report as delivery evidence. Full workflow and Claude triage prompt at <a href="#step-7">Section 2.7 — OWASP ZAP pre-launch scan</a>.</p>
+
+<h4>Exposed <code>.git</code> directory leaks full source + history <span class="meta">(IG · 2026-06-20 · reel DZxv4ukyGmN · @runtimebug)</span></h4>
+<p>If a deployed web root serves <code>/.git/HEAD</code> or <code>/.git/config</code>, attackers can rebuild the repository even when directory listing is off. Full check, prevention rules, and incident response link at <a href="#step-8">Section 2.8 — Exposed <code>.git</code> directory check</a>.</p>
+
 <h4>Leaked AWS key — what to actually do (DevOps interview) <span class="meta">(IG · 2026-05-30 · reel DXV91nNivPl)</span></h4>
 <p><code>git revert</code> doesn&rsquo;t help — the original commit is still in history. Rotate FIRST (key is dead the moment it hit GitHub), scrub history second with BFG/git-filter-repo, install pre-commit hooks (gitleaks/trufflehog) to prevent next time. Full 3-step playbook + tools + WRONG/RIGHT table at <a href="#step-6">Section 2.6 — Leaked-secret incident response</a>.</p>
 
@@ -4483,6 +4577,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-06-20</td><td><strong>Expanded Section 2 — Security audit runbook.</strong> From IG reels DZyEXA6vDXs (@mattmurphyai) and DZxv4ukyGmN (@runtimebug). Added OWASP ZAP pre-launch scan workflow, exposed <code>.git</code> directory check, deployment prevention notes, incident-response tie-in, Claude audit prompts, and reel-index entries.</td></tr>
 <tr><td>2026-06-19</td><td><strong>Added Section 8.11 — Global latency playbook.</strong> From IG reel DZCzQPpRI8d (@mattmurphyai). Captures edge frontend + Supabase/Postgres read replicas + geo-aware routing as a recommendation for measured multi-region latency, not a mandatory default for every Next.js project. Added use/skip decision table, Next.js/Supabase implementation notes, audit prompt, and reel-index entry.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Expanded Section 14.2 — Performance &amp; scaling.</strong> From IG reels DZfT4d5AiWg (@mattmurphyai) and DXtsSUlD1hC (@kodekloud). Added the 3-layer cache stack (API response cache / CDN edge / expensive DB-query cache) and a 30-second query triage checklist using EXPLAIN ANALYZE, targeted indexes, N+1 detection, and select/pagination fixes.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 17.8 — Understanding + verification gate before prod.</strong> From IG reel DZf_wAWzBL3 (@buildinghappi). Captures the “Claude made me faster than I understand” risk and adds a 4-question security/efficiency/regression/tests prompt for AI-built features.</td></tr>
