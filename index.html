@@ -380,6 +380,7 @@
         <li><a href="#file-storage">15.6 URL expiration times</a></li>
         <li><a href="#file-storage">15.7 Security checklist</a></li>
         <li><a href="#file-storage">15.8 Audit prompt</a></li>
+        <li><a href="#file-storage">15.9 CDN delivery + metadata-only DB rows</a></li>
       </ol>
     </li>
     <li><a href="#webhook-delivery">Webhook delivery architecture (outbox / retries / DLQ / replay)</a>
@@ -4344,6 +4345,9 @@ function SearchBox() {
 <h4>File upload service design (Google Drive interview) <span class="meta">(IG · 2026-05-30 · reel DYk0S1pppMl)</span></h4>
 <p>4-version: files in Postgres (bad) → files via server (still bad, 4.5MB Vercel limit) → pre-signed URLs (right). Files never touch your server. Pre-signed POST for browser uploads with content-length-range + content-type allowlist. Full architecture + security checklist + audit prompt at <a href="#file-storage">Section 15 — File storage architecture</a>.</p>
 
+<h4>Database stores URLs, object storage stores files, CDN serves them <span class="meta">(IG · 2026-06-20 · reel DZxfOW9xsFD · @mattmurphyai)</span></h4>
+<p>Mostly reinforces Section 15&rsquo;s existing rule, with a useful delivery framing: DB = metadata/key, storage = bytes, CDN = public asset delivery. Added as <a href="#file-storage">Section 15.9 — CDN delivery + metadata-only DB rows</a>.</p>
+
 <h4>Why pre-signed URLs matter (system design interview framing) <span class="meta">(IG · 2026-05-30 · reel DYPp-arDNmJ)</span></h4>
 <p>Companion reel to DYk0S1pppMl. Two new framings added: <strong>thread starvation</strong> (2GB upload holds a request thread + memory; at 100 concurrent uploads your API does zero application work), <strong>double bandwidth bill</strong> (client → server → S3 = 2 transfers, pre-signed = 1). Plus the <strong>S3 completion event</strong> pattern (don&rsquo;t trust the client to call back — use S3 ObjectCreated events to trigger downstream work). Added inline to <a href="#file-storage">Section 15.3</a> with Lambda example.</p>
 
@@ -4566,6 +4570,27 @@ Cross-reference: if the project uses Supabase Storage, treat that as already-V3
 Don&rsquo;t change code. Just the audit.</code></pre>
 </div>
 
+<h3>15.9 CDN delivery + metadata-only DB rows</h3>
+<p>Source: IG reel <code>DZxfOW9xsFD</code> (2026-06-20, @mattmurphyai). This reel is mostly a simpler restatement of the existing Section 15 rule, but it adds a useful client-delivery framing: <strong>the database stores metadata and a pointer; object storage stores bytes; the CDN serves public bytes.</strong></p>
+
+<table>
+<tr><th>Layer</th><th>Owns</th><th>Should not do</th></tr>
+<tr><td><strong>Database</strong></td><td>File metadata: owner, object key/URL, MIME type, size, status, timestamps, permissions</td><td>Store image/PDF/video bytes in <code>bytea</code>/<code>blob</code> columns</td></tr>
+<tr><td><strong>Object storage</strong></td><td>Actual file bytes: S3/R2/GCS/Supabase Storage bucket objects</td><td>Act as the authorization source of truth</td></tr>
+<tr><td><strong>CDN</strong></td><td>Fast delivery for public or safely-cacheable assets: profile pictures, product images, static downloads</td><td>Cache private/user-specific files without a correct cache key or signed URL policy</td></tr>
+</table>
+
+<div class="note">
+<strong>Rule of thumb:</strong> profile pictures and public product images should usually be served through CloudFront / Cloudflare / Vercel Image Optimization / Supabase CDN. Private documents should stay behind signed URLs and short TTLs. Never let the convenience of a CDN bypass the auth model.
+</div>
+
+<h4>Audit additions</h4>
+<ul>
+  <li>Search for DB columns named <code>image</code>, <code>file</code>, <code>avatar</code>, <code>pdf</code>, <code>blob</code>, <code>bytea</code>. Confirm they store a URL/key, not bytes.</li>
+  <li>For public images, verify there is a CDN/image-optimization path. A profile picture request should not hit the app server on every page load.</li>
+  <li>For private files, verify the DB row stores the object key and permission model, then the API mints short-lived signed GET URLs after authorization.</li>
+</ul>
+
 </div>
 </section>
 
@@ -4577,6 +4602,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-06-20</td><td><strong>Expanded Section 15 — File storage architecture.</strong> From IG reel DZxfOW9xsFD (@mattmurphyai). Added CDN delivery + metadata-only database row framing, audit additions for blob/bytea columns and public-image CDN paths, plus reel-index entry.</td></tr>
 <tr><td>2026-06-20</td><td><strong>Expanded Section 2 — Security audit runbook.</strong> From IG reels DZyEXA6vDXs (@mattmurphyai) and DZxv4ukyGmN (@runtimebug). Added OWASP ZAP pre-launch scan workflow, exposed <code>.git</code> directory check, deployment prevention notes, incident-response tie-in, Claude audit prompts, and reel-index entries.</td></tr>
 <tr><td>2026-06-19</td><td><strong>Added Section 8.11 — Global latency playbook.</strong> From IG reel DZCzQPpRI8d (@mattmurphyai). Captures edge frontend + Supabase/Postgres read replicas + geo-aware routing as a recommendation for measured multi-region latency, not a mandatory default for every Next.js project. Added use/skip decision table, Next.js/Supabase implementation notes, audit prompt, and reel-index entry.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Expanded Section 14.2 — Performance &amp; scaling.</strong> From IG reels DZfT4d5AiWg (@mattmurphyai) and DXtsSUlD1hC (@kodekloud). Added the 3-layer cache stack (API response cache / CDN edge / expensive DB-query cache) and a 30-second query triage checklist using EXPLAIN ANALYZE, targeted indexes, N+1 detection, and select/pagination fixes.</td></tr>
