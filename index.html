@@ -3961,6 +3961,36 @@ For each finding give file:line and a 1-line fix. Don't write code yet.</code></
 </ol>
 <p><strong>Relevant for:</strong> client Next.js launches (Bashier, gan-tair, etc.) when you expect any meaningful traffic at launch. Add k6 to a pre-launch checklist.</p>
 
+<h4>5 performance fixes AI coding tools often skip <span class="meta">(IG · 2026-06-21 · reel DZ3PQxzoUEr · @haydenschmitty)</span></h4>
+<p>The reel&rsquo;s useful contribution is not a new framework; it is a concise <strong>post-AI-code performance checklist</strong>. Use it after Claude/Cursor builds a feature but before you trust it under real users.</p>
+<ol>
+  <li><strong>Compress JSON/API responses.</strong> Ensure gzip/Brotli is enabled at the host/proxy layer for JSON, HTML, CSS, and JS responses. Uncompressed payloads make every backend response slower than necessary.</li>
+  <li><strong>Batch database writes.</strong> Look for loops that insert/update rows one-by-one. Replace with bulk insert/upsert, transaction batching, or a queue/worker when the write fan-out can grow.</li>
+  <li><strong>Find the single dependency bottleneck.</strong> Break one slow user action into network events: frontend → app server → DB → third-party API → LLM/payment/email/etc. If one dependency is 80–90% of the round trip, optimize that first.</li>
+  <li><strong>Add optimistic UI where safe.</strong> For low-risk actions like likes, toggles, drag/drop reorder, or local settings, update the interface immediately and reconcile on failure. Do <em>not</em> use optimistic UI for payments, irreversible destructive actions, or anything where rollback would break trust.</li>
+  <li><strong>Stop rebuilding HTML for every visitor when it can be static/cached.</strong> Use static generation, ISR/revalidation, server/component caching, CDN caching, or edge cache for public/semi-static pages instead of rendering every request from scratch.</li>
+</ol>
+<div class="note">
+<strong>Asi rule:</strong> treat this as a pre-launch audit, not a rewrite mandate. Measure first. If the app has one user or tiny traffic, fix only the obvious low-risk issues. When a client app expects traffic, these are cheap asks that prevent the “works locally, feels slow at 1,000 users” failure mode.
+</div>
+<div class="copy-block">
+<pre><code>Audit this AI-built Next.js app for the 5 common performance misses.
+Do not refactor yet. Produce findings with file paths and recommended fixes.
+
+1. Compression: verify JSON/API/static responses are gzip/Brotli-compressed in
+   hosting/proxy config. Flag large uncompressed responses.
+2. DB write batching: find loops that create/update rows one at a time. Suggest
+   bulk insert/upsert, transactions, or queue/worker patterns.
+3. Dependency bottlenecks: for the 3 slowest user actions, map frontend → API →
+   DB → external services and estimate which hop dominates round-trip latency.
+4. Optimistic UI: find user actions that wait for backend before showing any UI
+   feedback. Mark SAFE_FOR_OPTIMISTIC_UI vs NOT_SAFE and explain rollback risk.
+5. HTML/rendering: find pages/routes rebuilt for every visitor that could use
+   SSG/ISR/revalidate, cache(), CDN cache, or edge caching.
+
+Output: issue | evidence/file | user impact | safest fix | risk | priority.</code></pre>
+</div>
+
 <h4>Caching for slow API / DB calls <span class="meta">(IG · 2026-05-29 · reel DY257b6xGCE)</span></h4>
 
 <p>Short reel making a solid point with a Convex-specific recommendation. The general lesson is universal; the specific tool only matters if you're already on Convex.</p>
