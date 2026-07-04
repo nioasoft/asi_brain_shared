@@ -436,7 +436,7 @@
         <li><a href="#ux-loading">9.7 Loading patterns (Part 3)</a></li>
         <li><a href="#ux-partial-states">9.8 Partial states &amp; graceful degradation (Part 9)</a></li>
         <li><a href="#ux-success-states">9.9 Success states &amp; confirmation feedback (Part 11)</a></li>
-        <li><a href="#ux-patterns">9.10 Coming in future reels (placeholders)</a></li>
+        <li><a href="#ux-jakobs-law">9.10 Jakob&rsquo;s Law across desktop, mobile, and RTL/LTR (Part 13)</a></li>
       </ol>
     </li>
   </ol>
@@ -3250,10 +3250,51 @@ Pay special attention to payments, bookings, forms, uploads, account changes, an
 Do not change code yet. Output an audit table.</code></pre>
 </div>
 
-<h3>9.10 Coming in future reels (placeholders)</h3>
+<h3 id="ux-jakobs-law">9.10 Jakob&rsquo;s Law across desktop, mobile, and RTL/LTR (Part 13 — reel DZ-c-4BMXIn)</h3>
 
-<p>Same series promises more parts. Asi will send when found.</p>
+<p>Jakob&rsquo;s Law says users expect your product to work like the products they already know. The nuance from this reel: <strong>the familiar pattern changes by device, input ergonomics, and language direction</strong>. Do not copy a desktop convention into mobile, or an LTR convention into RTL, without checking the user&rsquo;s actual context.</p>
 
+<h4>The shopping-cart example</h4>
+<table>
+<tr><th>Context</th><th>Common expectation</th><th>Why</th></tr>
+<tr><td><strong>Desktop web, LTR</strong></td><td>Cart often lives top-right.</td><td>Users have learned this from Amazon, Target, Shopify stores, etc.</td></tr>
+<tr><td><strong>Mobile app / mobile web</strong></td><td>Cart or primary commerce actions may move to bottom navigation.</td><td>The thumb lives at the bottom of the screen; top-right is hard to reach one-handed.</td></tr>
+<tr><td><strong>RTL markets</strong> (Hebrew/Arabic)</td><td>Layout may mirror; top-right assumptions may become top-left or need explicit testing.</td><td>Reading direction and scan path change. A pattern that feels natural in English can feel backwards in Arabic/Hebrew.</td></tr>
+</table>
+
+<h4>Rule for Asi projects</h4>
+<blockquote><strong>Use convention as the starting point, then verify it separately for desktop, mobile thumb reach, and RTL/LTR.</strong></blockquote>
+
+<ul>
+  <li><strong>Desktop:</strong> follow the platform convention unless there is a strong reason not to.</li>
+  <li><strong>Mobile:</strong> check reachability. Primary actions and frequently used controls should be reachable by thumb, especially in one-handed use.</li>
+  <li><strong>Hebrew / Arabic:</strong> test mirrored layout intentionally. Do not just flip CSS and assume the interaction still makes sense.</li>
+  <li><strong>Global apps:</strong> document per-locale exceptions instead of hiding them as one-off CSS hacks.</li>
+</ul>
+
+<h4>Claude audit prompt</h4>
+<div class="copy-block">
+<pre><code>Audit this UI for Jakob's Law across device and locale:
+
+1. List each primary navigation/action component: cart, checkout, search, profile,
+   settings, save/submit, back, close.
+2. For each, compare expected placement on:
+   - desktop web
+   - mobile web/app
+   - LTR locale
+   - RTL locale (Hebrew/Arabic)
+3. Check mobile thumb reach: is the action frequent enough to belong near the
+   bottom? Is any primary action stuck in a hard-to-reach top corner?
+4. Check mirroring: after RTL flip, does the visual order still match the user's
+   reading/scanning direction?
+5. Output: component | current placement | expected convention | device/locale
+   mismatch | recommended fix.
+
+Do not redesign for novelty. Preserve familiar patterns unless a measured
+context difference (mobile reach, RTL, locale convention) justifies changing it.</code></pre>
+</div>
+
+<h4>Series tracker</h4>
 <table>
 <tr><th>Part</th><th>Topic</th><th>Status</th></tr>
 <tr><td><strong>1</strong></td><td><strong>UI vs UX — the foundation</strong></td><td><span class="pill ok">documented (9.6)</span></td></tr>
@@ -3267,10 +3308,11 @@ Do not change code yet. Output an audit table.</code></pre>
 <tr><td><strong>9</strong></td><td><strong>Partial states &amp; graceful degradation</strong></td><td><span class="pill ok">documented (9.8)</span></td></tr>
 <tr><td>10</td><td>Inline spinners deep-dive (teased in reel 3 — "different kinds, psychology")</td><td><span class="pill info">teased, watch for it</span></td></tr>
 <tr><td><strong>11</strong></td><td><strong>Success states &amp; confirmation feedback</strong></td><td><span class="pill ok">documented (9.9)</span></td></tr>
-<tr><td>12</td><td>Jakob&rsquo;s Law (teased at end of Part 11)</td><td><span class="pill info">teased, watch for it</span></td></tr>
+<tr><td>12</td><td>Jakob&rsquo;s Law setup / teaser</td><td><span class="pill info">teased, watch for original</span></td></tr>
+<tr><td><strong>13</strong></td><td><strong>Jakob&rsquo;s Law across desktop, mobile, and RTL/LTR</strong></td><td><span class="pill ok">documented (9.10)</span></td></tr>
 </table>
 
-<p>If Asi finds the missing original Part 4, inline-spinners deep-dive, Jakob&rsquo;s Law, or later parts on the same creator&rsquo;s profile, send them and I&rsquo;ll add each here.</p>
+<p>If Asi finds the missing original Part 4, inline-spinners deep-dive, original Part 12, or later parts on the same creator&rsquo;s profile, send them and I&rsquo;ll add each here.</p>
 </div>
 </section>
 
@@ -4328,6 +4370,9 @@ function SearchBox() {
 <h4>Success states &amp; confirmation feedback <span class="meta">(IG · 2026-06-13 · reel DZYfsYPv1-l · @synsation_)</span></h4>
 <p>Every meaningful user action needs observable success feedback; high-stakes actions need durable confirmation pages/panels, while low-risk interactions can use persistent inline state. Added checklist + Claude audit prompt at <a href="#ux-success-states">Section 9.9 — Success states &amp; confirmation feedback</a>.</p>
 
+<h4>Jakob&rsquo;s Law across desktop, mobile, and RTL/LTR <span class="meta">(IG · 2026-06-24 · reel DZ-c-4BMXIn · @synsation_)</span></h4>
+<p>Expected layouts are contextual: desktop commerce often puts cart top-right, mobile may move frequent actions to bottom thumb zones, and RTL locales can mirror assumptions. Added decision rule + Claude audit prompt at <a href="#ux-jakobs-law">Section 9.10 — Jakob&rsquo;s Law across desktop, mobile, and RTL/LTR</a>.</p>
+
 <h4>Mobile deep links / Universal Links <span class="meta">(IG · 2026-06-06 · reel DZLHBM9xY33 · @mattmurphyai)</span></h4>
 <p>Shared mobile content links should open the app when installed and fall back to the web page when not installed. Added Apple Universal Links, Android App Links, Expo/React Native config, smart-banner fallback, and audit prompt at <a href="#mobile-deep-links">Section 19 — Mobile deep links</a>.</p>
 
@@ -4638,6 +4683,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 <tr><td>2026-06-13</td><td><strong>Expanded Section 14.2 — Performance &amp; scaling.</strong> From IG reels DZfT4d5AiWg (@mattmurphyai) and DXtsSUlD1hC (@kodekloud). Added the 3-layer cache stack (API response cache / CDN edge / expensive DB-query cache) and a 30-second query triage checklist using EXPLAIN ANALYZE, targeted indexes, N+1 detection, and select/pagination fixes.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 17.8 — Understanding + verification gate before prod.</strong> From IG reel DZf_wAWzBL3 (@buildinghappi). Captures the “Claude made me faster than I understand” risk and adds a 4-question security/efficiency/regression/tests prompt for AI-built features.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 17.7 — Post-feature cleanup pass.</strong> From IG reel DZdboxvTqnm (@buildinghappi). Captures the “ask Claude to delete/simplify after feature work” workflow, dead-code/duplicate-logic checklist, safe-cleanup prompt, and reel-index entry.</td></tr>
+<tr><td>2026-07-04</td><td><strong>Added Section 9.10 — Jakob&rsquo;s Law across desktop, mobile, and RTL/LTR.</strong> From IG reel DZ-c-4BMXIn (@synsation_). Covers cart placement expectations by device, mobile thumb reach, RTL/LTR mirroring, implementation rule for Asi projects, Claude audit prompt, series tracker update, and reel-index entry.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 9.9 — Success states &amp; confirmation feedback.</strong> From IG reel DZYfsYPv1-l (@synsation_). Covers explicit vs inline success states, high-stakes confirmations, duplicate-submit prevention, implementation checklist, and a Claude audit prompt; added reel-index entry.</td></tr>
 <tr><td>2026-06-06</td><td><strong>Added Section 19 — Mobile deep links.</strong> From IG reel DZLHBM9xY33. Covers Apple Universal Links, Android App Links, Expo/React Native linking, web fallback when the app is not installed, smart install banners, verification commands, and a Claude audit prompt for future mobile apps.</td></tr>
 <tr><td>2026-06-06</td><td><strong>Added Section 18 — Webhook delivery architecture.</strong> Integrated IG reel DZKq0TiRiij into the shared GitHub-backed HTML instead of a standalone local note. Added outbox → dispatcher → workers → DLQ/replay architecture, HMAC signing checklist, audit prompt, and reel-index entry.</td></tr>
