@@ -1668,6 +1668,71 @@ OUTPUT: split steps into 2 buckets (sync must-finish / async eventual)
 <tr><td><a href="https://supabase.com/docs/guides/database/extensions/pg_cron">Supabase pg_cron + Edge Functions</a></td><td>If you&rsquo;re heavily on Supabase. Schedule jobs from inside Postgres.</td></tr>
 </table>
 
+<h3 id="pricing-metrics">6.9 Pricing metrics, credits, and usage tracking (reel DZP2LwegIXN)</h3>
+
+<p>Source: IG reel <code>DZP2LwegIXN</code> by <code>@mattmurphyai</code>. This complements the Stripe architecture above: before implementing billing, choose a pricing metric that tracks the customer&rsquo;s value, then store billable usage as first-class events. Do not reconstruct usage from logs later.</p>
+
+<h4>Pick the metric that correlates with value</h4>
+<table>
+<tr><th>If the product mainly...</th><th>Default pricing metric</th><th>Why</th></tr>
+<tr><td><strong>Saves time</strong></td><td>Per user / per seat</td><td>More users means more hours saved and more organizational value.</td></tr>
+<tr><td><strong>Processes data</strong></td><td>Per unit processed</td><td>More rows/files/documents processed usually maps directly to more customer value and more infra cost.</td></tr>
+<tr><td><strong>Generates output</strong></td><td>Per generation / per output</td><td>More outputs mean more ROI for the user and often more AI/API cost for you.</td></tr>
+</table>
+
+<blockquote><strong>The pricing metric should scale with customer success:</strong> when they win more, you earn more. That alignment lowers churn.</blockquote>
+
+<h4>Credits are the abstraction layer</h4>
+<p>For mixed products, use credits to avoid changing the public price table every time the backend cost changes:</p>
+<ul>
+  <li>User buys <strong>1,000 credits/month</strong>.</li>
+  <li>Simple API call costs <strong>1 credit</strong>.</li>
+  <li>AI generation costs <strong>10 credits</strong>.</li>
+  <li>Document export costs <strong>5 credits</strong>.</li>
+</ul>
+<p>This lets you tune per-action cost internally while keeping pricing understandable. Stripe Billing can support metered usage; report credit consumption through the API and let Stripe handle invoicing.</p>
+
+<h4>Architecture rule: usage events from day one</h4>
+<p>Every billable action gets an event row:</p>
+<div class="copy-block">
+<pre><code>usage_events
+- id
+- user_id / tenant_id
+- action_type        # ai_generation, api_call, export, processed_row, etc.
+- credit_cost
+- units              # optional: rows processed, tokens, files, minutes
+- source_object_id   # optional link to job/document/request
+- idempotency_key    # prevents double-counting retries
+- created_at</code></pre>
+</div>
+
+<p><strong>One source of truth:</strong> billing reads from this table, analytics reads from this table, support/debugging reads from this table. Application logs are not billing data.</p>
+
+<h4>Audit prompt</h4>
+<div class="copy-block">
+<pre><code>Audit this product's pricing/billing model:
+
+1. Classify the value driver:
+   - saves time → per-seat/user may fit
+   - processes data → per unit processed may fit
+   - generates output → per generation/output may fit
+   - mixed → consider a credit system
+2. List every billable action in the product.
+3. Check whether each action writes a durable usage event with:
+   user/tenant, action_type, units, credit_cost, idempotency_key, timestamp.
+4. Check whether Stripe/metered billing and analytics read from the same usage
+   event table, not from application logs.
+5. Flag gaps:
+   - pricing metric does not correlate with customer value
+   - no dedicated usage_events table
+   - billing reconstructed from logs
+   - no idempotency key for usage events
+   - credits exist in UI but action costs are hardcoded in multiple places
+
+Output: recommended pricing metric, usage event schema, and the smallest changes
+needed before launch.</code></pre>
+</div>
+
 </div>
 </section>
 
@@ -4414,6 +4479,9 @@ function SearchBox() {
 
 <h3>14.8 Architecture playbooks (system design reels)</h3>
 
+<h4>Pricing metrics, credits, and usage tracking <span class="meta">(IG · 2026-06-06 · reel DZP2LwegIXN · @mattmurphyai)</span></h4>
+<p>Choose pricing metric by value driver: time saved → per-seat, data processing → per unit, output generation → per output. For mixed products, use credits and track every billable action as a durable usage event. Added as <a href="#pricing-metrics">Section 6.9 — Pricing metrics, credits, and usage tracking</a>.</p>
+
 <h4>Order placement architecture (Amazon-style) <span class="meta">(IG · 2026-05-30 · reel DYe7hbPiqtb)</span></h4>
 <p>4-version progression: sync everything → push email/warehouse/recs to queue → split into "must-finish" vs "eventually-OK" buckets. The single question: <em>"what must be true before we can honestly tell the user this succeeded?"</em> + warning about silent-fail background workers. Full breakdown + queue tooling table at <a href="#payments-architecture">Section 6.8 — Generalizing multi-step writes</a>.</p>
 
@@ -4683,6 +4751,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 <tr><td>2026-06-13</td><td><strong>Expanded Section 14.2 — Performance &amp; scaling.</strong> From IG reels DZfT4d5AiWg (@mattmurphyai) and DXtsSUlD1hC (@kodekloud). Added the 3-layer cache stack (API response cache / CDN edge / expensive DB-query cache) and a 30-second query triage checklist using EXPLAIN ANALYZE, targeted indexes, N+1 detection, and select/pagination fixes.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 17.8 — Understanding + verification gate before prod.</strong> From IG reel DZf_wAWzBL3 (@buildinghappi). Captures the “Claude made me faster than I understand” risk and adds a 4-question security/efficiency/regression/tests prompt for AI-built features.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 17.7 — Post-feature cleanup pass.</strong> From IG reel DZdboxvTqnm (@buildinghappi). Captures the “ask Claude to delete/simplify after feature work” workflow, dead-code/duplicate-logic checklist, safe-cleanup prompt, and reel-index entry.</td></tr>
+<tr><td>2026-07-04</td><td><strong>Added Section 6.9 — Pricing metrics, credits, and usage tracking.</strong> From IG reel DZP2LwegIXN (@mattmurphyai). Covers value-correlated pricing metrics, credits as abstraction, durable usage_events schema, idempotency for billable events, Stripe metered billing alignment, audit prompt, and reel-index entry.</td></tr>
 <tr><td>2026-07-04</td><td><strong>Added Section 9.10 — Jakob&rsquo;s Law across desktop, mobile, and RTL/LTR.</strong> From IG reel DZ-c-4BMXIn (@synsation_). Covers cart placement expectations by device, mobile thumb reach, RTL/LTR mirroring, implementation rule for Asi projects, Claude audit prompt, series tracker update, and reel-index entry.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 9.9 — Success states &amp; confirmation feedback.</strong> From IG reel DZYfsYPv1-l (@synsation_). Covers explicit vs inline success states, high-stakes confirmations, duplicate-submit prevention, implementation checklist, and a Claude audit prompt; added reel-index entry.</td></tr>
 <tr><td>2026-06-06</td><td><strong>Added Section 19 — Mobile deep links.</strong> From IG reel DZLHBM9xY33. Covers Apple Universal Links, Android App Links, Expo/React Native linking, web fallback when the app is not installed, smart install banners, verification commands, and a Claude audit prompt for future mobile apps.</td></tr>
