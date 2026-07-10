@@ -294,7 +294,7 @@
 <header>
   <h1>Security &amp; Code-Quality Reference</h1>
   <div class="subtitle">For Asi's Next.js client projects + crypto bot infrastructure</div>
-  <span class="updated">Last updated: 2026-06-19 · Living document — append new findings as we learn them</span>
+  <span class="updated">Last updated: 2026-07-10 · Living document — append new findings as we learn them</span>
 </header>
 
 <nav class="toc">
@@ -418,7 +418,8 @@
         <li><a href="#deploy-environments">8.8 When to graduate from Vercel (and where to)</a></li>
         <li><a href="#deploy-environments">8.9 CI/CD maturity ladder (5 rungs from solo to canary)</a></li>
         <li><a href="#deploy-environments">8.10 Product analytics (PostHog / Amplitude — what users actually do)</a></li>
-        <li><a href="#deploy-environments">8.11 Global latency playbook (edge frontend + read replicas)</a></li>
+        <li><a href="#deploy-environments">8.11 Session replay + rage-click observability</a></li>
+        <li><a href="#deploy-environments">8.12 Global latency playbook (edge frontend + read replicas)</a></li>
       </ol>
     </li>
   </ol>
@@ -2574,7 +2575,86 @@ Don&rsquo;t install yet. Just the plan.</code></pre>
 </div>
 
 
-<h3>8.11 Global latency playbook — edge frontend + read replicas</h3>
+<h3>8.11 Session replay + rage-click observability</h3>
+
+<p>Source: IG reel <code>DafuL1lggp3</code> (2026-07-07, @mattmurphyai). The useful operational point: when a user reports “it just stopped working,” a text description is usually not enough. For real user-facing apps, connect <strong>session replay</strong>, <strong>error tracking</strong>, and <strong>rage-click detection</strong> so debugging starts from what the user actually experienced.</p>
+
+<div class="note">
+<strong>Important framing for Asi:</strong> this is a <strong>recommendation for real user-facing apps</strong>, not a default requirement for brochure sites, admin-only tools, single-user bots, or privacy-sensitive flows. Add it when the product has accounts, funnels, support tickets, or paid users where reproducing bugs costs time. Use privacy masking and sampling; do not blindly record every keystroke or sensitive field.
+</div>
+
+<h4>The 3-part pattern</h4>
+<table>
+<tr><th>Layer</th><th>Recommendation</th><th>What it fixes</th></tr>
+<tr>
+  <td><strong>Session replay</strong></td>
+  <td>Record a scrubbed replay of user sessions with tools like <a href="https://posthog.com/session-replay">PostHog Replay</a>, <a href="https://sentry.io/product/session-replay/">Sentry Replay</a>, LogRocket, or FullStory.</td>
+  <td>Support stops guessing from vague reports. You can see clicks, scrolls, navigation, UI state, and the last actions before failure.</td>
+</tr>
+<tr>
+  <td><strong>Error correlation</strong></td>
+  <td>Attach the replay ID / user ID / release / route to exceptions in Sentry or equivalent error tracking.</td>
+  <td>When an exception fires, the replay opens next to the stack trace. Debugging becomes “what happened before the error?” instead of “can I reproduce it?”</td>
+</tr>
+<tr>
+  <td><strong>Rage-click detection</strong></td>
+  <td>Flag repeated clicks/taps on the same element in a short window (for example 5–7 clicks within ~3 seconds).</td>
+  <td>Surfaces broken buttons, blocked flows, confusing UI, and hidden loading states before the user writes a support ticket.</td>
+</tr>
+</table>
+
+<h4>Implementation checklist</h4>
+<ul>
+  <li><strong>Choose the default tool by stack:</strong> PostHog if product analytics is already planned; Sentry Replay if Sentry is already the production error tracker; LogRocket/FullStory only when a client needs deeper enterprise UX diagnostics.</li>
+  <li><strong>Mask by default:</strong> hide passwords, tokens, payment fields, ID numbers, medical/legal fields, free-text sensitive inputs, and any client-specific confidential data. Prefer allowlist capture over broad capture for sensitive apps.</li>
+  <li><strong>Sample intelligently:</strong> capture 100% of sessions with errors, a small sample of normal traffic, and optionally higher sampling for beta users or new features.</li>
+  <li><strong>Correlate identifiers:</strong> include <code>user_id</code>, <code>session_id</code>, <code>release</code>, <code>route</code>, <code>tenant_id</code> when relevant, and the replay URL on the error event.</li>
+  <li><strong>Create UX alerts:</strong> rage clicks, dead clicks, repeated form-submit failures, loops between the same two pages, and long “loading” states should become product/UX signals, not just backend errors.</li>
+  <li><strong>Review weekly:</strong> pair the analytics funnel review with 5–10 real replays from drop-offs, cancellations, or rage-click clusters.</li>
+</ul>
+
+<h4>Use / skip decision rule</h4>
+<table>
+<tr><th>Use this pattern when</th><th>Skip / postpone when</th></tr>
+<tr>
+  <td>The app has real users, support reports, onboarding/checkout funnels, paid accounts, or client SLA expectations.</td>
+  <td>It is a static marketing site, early throwaway prototype, internal one-user bot, or traffic is too small to justify the privacy/storage overhead.</td>
+</tr>
+<tr>
+  <td>Users say “it doesn&rsquo;t work” and the team wastes time asking for screenshots, console logs, or reproduction steps.</td>
+  <td>The current problem is server crashes with clear logs; fix basic error tracking first before adding replay complexity.</td>
+</tr>
+<tr>
+  <td>The product has complex UI: dashboards, forms, payments, drag/drop, onboarding, permissions, mobile/responsive behavior.</td>
+  <td>The flow handles highly sensitive content and you cannot confidently mask/avoid capturing it yet.</td>
+</tr>
+</table>
+
+<h4>Audit prompt</h4>
+<div class="copy-block">
+<pre><code>Audit this user-facing app for session replay + error correlation readiness.
+
+1. Current observability:
+   - Is Sentry or equivalent error tracking installed? Where?
+   - Are errors tagged with user_id/session_id/release/route/tenant_id?
+
+2. Session replay fit:
+   - Does the app have accounts, funnels, support tickets, paid users, or complex UI flows?
+   - Which pages/fields must be masked or excluded for privacy/security?
+
+3. Implementation plan:
+   - Recommend PostHog Replay vs Sentry Replay vs skip for now.
+   - Define sampling: % of normal sessions, 100% of sessions with errors, beta/new-feature sampling.
+   - Show exactly where to initialize replay and how to attach replay URL/session ID to error events.
+
+4. UX signals:
+   - Add detection for rage clicks, dead clicks, repeated submit failures, route loops, and long loading states.
+   - Output: file changes, env vars, privacy risks, rollout plan, and a 1-week review checklist.
+
+Do not install yet. Produce the plan and risks first.</code></pre>
+</div>
+
+<h3>8.12 Global latency playbook — edge frontend + read replicas</h3>
 
 <p>Source: IG reel <code>DZCzQPpRI8d</code> (2026-06-19, @mattmurphyai). The reel&rsquo;s useful claim: if the app runs from one server/DB region (for example Virginia) and users are in Singapore, Israel, Europe, etc., 3–5 second page loads are often an <strong>architecture latency problem</strong>, not a random bug.</p>
 
@@ -4424,8 +4504,11 @@ function SearchBox() {
 <h4>Product analytics — what users actually do <span class="meta">(IG · 2026-05-31 · reel DY2zZvMsVzj)</span></h4>
 <p>Reel pitches Amplitude. The need is real and almost always missing in client deliveries — "product analytics" (PostHog/Amplitude) is different from "site analytics" (Plausible/GA). 3 tools table + minimum-useful event set + weekly review checklist + Asi-specific guidance (PostHog default for client apps; skip for brochure sites; not applicable for bots) + pre-delivery audit prompt at <a href="#deploy-environments">Section 8.10</a>.</p>
 
+<h4>Session replay + rage-click observability <span class="meta">(IG · 2026-07-07 · reel DafuL1lggp3 · @mattmurphyai)</span></h4>
+<p>When a user says “it just stopped working,” connect scrubbed session replay to error tracking and flag rage clicks/dead clicks as UX failures. Captured as a <strong>recommendation for real user-facing apps</strong>, with privacy masking and sampling required. Full implementation checklist + audit prompt at <a href="#deploy-environments">Section 8.11</a>.</p>
+
 <h4>Global latency playbook — edge frontend + read replicas <span class="meta">(IG · 2026-06-19 · reel DZCzQPpRI8d · @mattmurphyai)</span></h4>
-<p>If users are far from the app&rsquo;s single server/DB region, slow pages may be architecture latency: deploy frontend/static assets to Vercel or Cloudflare edge, add Supabase/Postgres read replicas near users, and route reads geographically while writes stay on primary. Captured as a <strong>recommendation, not a default requirement</strong>; only use after measuring multi-region traffic/latency. Full decision rule + audit prompt at <a href="#deploy-environments">Section 8.11</a>.</p>
+<p>If users are far from the app&rsquo;s single server/DB region, slow pages may be architecture latency: deploy frontend/static assets to Vercel or Cloudflare edge, add Supabase/Postgres read replicas near users, and route reads geographically while writes stay on primary. Captured as a <strong>recommendation, not a default requirement</strong>; only use after measuring multi-region traffic/latency. Full decision rule + audit prompt at <a href="#deploy-environments">Section 8.12</a>.</p>
 
 <h4>2GB Docker image = your business problem <span class="meta">(IG · 2026-05-29 · reel DXYh9CHihnt)</span></h4>
 <p>Multi-stage builds, alpine/distroless base images, <code>.dockerignore</code>. Asi&rsquo;s typical Vercel/Mac mini workflow doesn&rsquo;t need this — relevant if a bot moves to Railway, a client wants self-hosted, or building MCP servers. Minimum Dockerfile + .dockerignore + verification commands at <a href="#deploy-environments">Section 8.7</a>.</p>
@@ -4745,9 +4828,10 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-07-10</td><td><strong>Added Section 8.11 — Session replay + rage-click observability.</strong> From IG reel DafuL1lggp3 (@mattmurphyai). Captures session replay, Sentry/PostHog replay-to-error correlation, rage/dead-click UX signals, privacy masking, sampling, use/skip decision rule, audit prompt, and reel-index entry. Renumbered Global latency playbook to Section 8.12.</td></tr>
 <tr><td>2026-06-20</td><td><strong>Expanded Section 15 — File storage architecture.</strong> From IG reel DZxfOW9xsFD (@mattmurphyai). Added CDN delivery + metadata-only database row framing, audit additions for blob/bytea columns and public-image CDN paths, plus reel-index entry.</td></tr>
 <tr><td>2026-06-20</td><td><strong>Expanded Section 2 — Security audit runbook.</strong> From IG reels DZyEXA6vDXs (@mattmurphyai) and DZxv4ukyGmN (@runtimebug). Added OWASP ZAP pre-launch scan workflow, exposed <code>.git</code> directory check, deployment prevention notes, incident-response tie-in, Claude audit prompts, and reel-index entries.</td></tr>
-<tr><td>2026-06-19</td><td><strong>Added Section 8.11 — Global latency playbook.</strong> From IG reel DZCzQPpRI8d (@mattmurphyai). Captures edge frontend + Supabase/Postgres read replicas + geo-aware routing as a recommendation for measured multi-region latency, not a mandatory default for every Next.js project. Added use/skip decision table, Next.js/Supabase implementation notes, audit prompt, and reel-index entry.</td></tr>
+<tr><td>2026-06-19</td><td><strong>Added Section 8.12 — Global latency playbook.</strong> From IG reel DZCzQPpRI8d (@mattmurphyai). Captures edge frontend + Supabase/Postgres read replicas + geo-aware routing as a recommendation for measured multi-region latency, not a mandatory default for every Next.js project. Added use/skip decision table, Next.js/Supabase implementation notes, audit prompt, and reel-index entry.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Expanded Section 14.2 — Performance &amp; scaling.</strong> From IG reels DZfT4d5AiWg (@mattmurphyai) and DXtsSUlD1hC (@kodekloud). Added the 3-layer cache stack (API response cache / CDN edge / expensive DB-query cache) and a 30-second query triage checklist using EXPLAIN ANALYZE, targeted indexes, N+1 detection, and select/pagination fixes.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 17.8 — Understanding + verification gate before prod.</strong> From IG reel DZf_wAWzBL3 (@buildinghappi). Captures the “Claude made me faster than I understand” risk and adds a 4-question security/efficiency/regression/tests prompt for AI-built features.</td></tr>
 <tr><td>2026-06-13</td><td><strong>Added Section 17.7 — Post-feature cleanup pass.</strong> From IG reel DZdboxvTqnm (@buildinghappi). Captures the “ask Claude to delete/simplify after feature work” workflow, dead-code/duplicate-logic checklist, safe-cleanup prompt, and reel-index entry.</td></tr>
