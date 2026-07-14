@@ -1122,6 +1122,15 @@ Output: URL/path | HTTP status | evidence | risk | exact fix.</code></pre>
 </tr>
 </table>
 
+<h4>Account deletion is a business process, not a button</h4>
+<p>Source: IG reel <code>DavJP42gfEJ</code> (2026-07-14, @mattmurphyai). Useful implementation rule: if the app has login/signup, design the deletion workflow before the first real deletion request arrives.</p>
+<ol>
+  <li><strong>Cascade map:</strong> inventory every table and external system that touches the user: orders, messages, uploads/files, payment history, sessions, support tickets, analytics identifiers, email lists, and backups. For each one, decide: hard delete, anonymize, preserve for legal/accounting reasons, or detach from the user.</li>
+  <li><strong>Immediate deactivation + retention window:</strong> remove the user from the product immediately, then keep only the data required for compliance/fraud/accounting review for a documented retention period (for example 30 days). After the window, hard-delete/anonymize automatically via a scheduled job — no manual cleanup.</li>
+  <li><strong>On-demand data report:</strong> build an admin/user-rights report that lists everything held about the user and the deletion status of each item. If the system cannot produce that report quickly, the legal exposure is hidden, not solved.</li>
+  <li><strong>Verification evidence:</strong> log request received, identity verified, deactivated_at, deletion_job_id, completed_at, preserved legal records, and confirmation sent. Keep this audit trail without retaining unnecessary personal data.</li>
+</ol>
+
 <h3>4.2 Pre-delivery legal checklist (copy into project)</h3>
 
 <div class="copy-block">
@@ -1132,6 +1141,9 @@ Output: URL/path | HTTP status | evidence | risk | exact fix.</code></pre>
 [ ] Cookie banner with explicit opt-in (not just "by using this site you agree")
 [ ] Cookie banner blocks non-essential trackers (GA, Pixel, etc.) until consent
 [ ] "Delete my data" path exists — button in account settings OR a documented email process
+[ ] Account deletion cascade map exists — user tables + external systems + decision per record type
+[ ] Deletion flow deactivates immediately, then hard-deletes/anonymizes automatically after retention window
+[ ] Data-rights report can be generated on demand — all held data + deletion status + confirmation evidence
 [ ] Data export path exists — auto-download OR manual within 30 days
 [ ] If using analytics: GA4 anonymized IPs (`anonymize_ip: true`); no PII in event parameters
 [ ] If using payments: Stripe / PayPal handles PCI compliance (don't store card data yourself)
