@@ -327,6 +327,7 @@
         <li><a href="#legal-compliance">4.2 Pre-delivery legal checklist</a></li>
         <li><a href="#legal-compliance">4.3 Israel-specific notes</a></li>
         <li><a href="#legal-compliance">4.4 IP / Trademark check before you fall in love with a name</a></li>
+        <li><a href="#legal-compliance">4.5 Six documents before accepting payment</a></li>
       </ol>
     </li>
   </ol>
@@ -1208,6 +1209,59 @@ Output: URL/path | HTTP status | evidence | risk | exact fix.</code></pre>
   <li><strong>Pick a different category.</strong> If the trademark is for "Acme Coffee" and you&rsquo;re building "Acme Project Management", you might be legally fine — but get a lawyer to confirm.</li>
   <li><strong>License or buy.</strong> Only if the name is genuinely critical and the holder is willing. Rare.</li>
 </ul>
+
+<h3>4.5 Six documents before accepting payment</h3>
+
+<p>Source: IG reel <code>Davh5IQjRBY</code> (2026-07-17, @mattmurphyai). Recommendation for SaaS / AI products: before the first real customer payment, have the business documents and risk controls below drafted for the actual product, data practices, and liability boundaries. AI can produce a first draft, but templates are not enough when the product handles user/customer data or sells to businesses.</p>
+
+<div class="note">
+<strong>Asi rule:</strong> for a simple marketing site, keep the normal Section 4.2 pre-delivery checklist. For anything that takes payments, has accounts, processes client/user data, or sells B2B/enterprise, treat this as a pre-payment checklist and get human legal review for the non-trivial parts.
+</div>
+
+<table>
+<tr><th>Item</th><th>What it protects</th><th>When it becomes important</th></tr>
+<tr>
+  <td><strong>Terms of Service</strong></td>
+  <td>User conduct, liability limits, dispute handling, termination, and what happens when things go wrong.</td>
+  <td>Any app with accounts, paid access, user content, automations, AI output, or business-critical workflows.</td>
+</tr>
+<tr>
+  <td><strong>Privacy Policy</strong></td>
+  <td>What data is collected, how it is used/shared/stored, retention, deletion/export rights, and contact path.</td>
+  <td>Any email capture, analytics, signup, uploads, CRM, payments, or integrations with user/customer data.</td>
+</tr>
+<tr>
+  <td><strong>DPA — Data Processing Agreement</strong></td>
+  <td>Defines controller/processor responsibilities when processing data for another business.</td>
+  <td>B2B SaaS, agencies, enterprise customers, EU/GDPR exposure, or vendors like Supabase/Vercel/Mailgun touching customer data.</td>
+</tr>
+<tr>
+  <td><strong>Refund Policy</strong></td>
+  <td>Clear money-back/subscription-cancellation rules; reduces payment disputes and support confusion.</td>
+  <td>Before enabling Stripe/PayPal/credit-card payments, subscriptions, pre-orders, or digital-product sales.</td>
+</tr>
+<tr>
+  <td><strong>MSA — Master Service Agreement</strong></td>
+  <td>B2B relationship terms: scope, support, SLAs, uptime, response times, responsibility split, remedies, and failure handling.</td>
+  <td>When selling a system/service to a company rather than a one-off consumer purchase.</td>
+</tr>
+<tr>
+  <td><strong>Cyber liability insurance</strong></td>
+  <td>Financial backstop for incidents that documents alone do not cover: breach response, claims, legal costs, customer-data fallout.</td>
+  <td>Optional on day one, but recommended once the product stores customer data at meaningful scale or serves paying businesses.</td>
+</tr>
+</table>
+
+<div class="copy-block">
+<pre><code>Pre-payment legal/risk checklist for SaaS / AI products
+[ ] ToS drafted for the exact product, AI/data behavior, user rules, liability boundaries, and dispute path
+[ ] Privacy policy matches what the app actually collects, stores, shares, tracks, and deletes
+[ ] DPA ready if processing data for a business customer or touching GDPR/enterprise workflows
+[ ] Refund/cancellation policy published before payment processors go live
+[ ] MSA template ready for B2B customers: support, SLA, uptime, response times, failure/remedy terms
+[ ] Cyber liability insurance considered once storing customer data at scale or serving paying businesses
+[ ] Lawyer review triggered for regulated data, minors, health/finance, cross-border, or enterprise deals</code></pre>
+</div>
 </div>
 </section>
 
@@ -4107,6 +4161,9 @@ For each finding give file:line and a 1-line fix. Don't write code yet.</code></
 
 <h3>14.1 Security-related reels</h3>
 
+<h4>Six documents before accepting payment <span class="meta">(IG · 2026-07-17 · reel Davh5IQjRBY · @mattmurphyai)</span></h4>
+<p>Pre-payment legal/risk checklist for SaaS and AI products: ToS, Privacy Policy, DPA, Refund Policy, MSA, and cyber liability insurance. Added as an optional-but-important product readiness recommendation in <a href="#legal-compliance">Section 4.5 — Six documents before accepting payment</a>.</p>
+
 <h4>OWASP ZAP before launch <span class="meta">(IG · 2026-06-20 · reel DZyEXA6vDXs · @mattmurphyai)</span></h4>
 <p>Run a baseline/passive OWASP ZAP scan before launch, triage Critical/High findings first, and keep the report as delivery evidence. Full workflow and Claude triage prompt at <a href="#step-7">Section 2.7 — OWASP ZAP pre-launch scan</a>.</p>
 
@@ -4840,6 +4897,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-07-17</td><td><strong>Added Section 4.5 — Six documents before accepting payment.</strong> From IG reel Davh5IQjRBY (@mattmurphyai). Captures ToS, Privacy Policy, DPA, Refund Policy, MSA, and cyber liability insurance as a pre-payment readiness checklist for SaaS / AI products, with an Asi-specific apply/skip rule, copy-paste audit checklist, and reel-index entry.</td></tr>
 <tr><td>2026-07-10</td><td><strong>Added Section 8.11 — Session replay + rage-click observability.</strong> From IG reel DafuL1lggp3 (@mattmurphyai). Captures session replay, Sentry/PostHog replay-to-error correlation, rage/dead-click UX signals, privacy masking, sampling, use/skip decision rule, audit prompt, and reel-index entry. Renumbered Global latency playbook to Section 8.12.</td></tr>
 <tr><td>2026-06-20</td><td><strong>Expanded Section 15 — File storage architecture.</strong> From IG reel DZxfOW9xsFD (@mattmurphyai). Added CDN delivery + metadata-only database row framing, audit additions for blob/bytea columns and public-image CDN paths, plus reel-index entry.</td></tr>
 <tr><td>2026-06-20</td><td><strong>Expanded Section 2 — Security audit runbook.</strong> From IG reels DZyEXA6vDXs (@mattmurphyai) and DZxv4ukyGmN (@runtimebug). Added OWASP ZAP pre-launch scan workflow, exposed <code>.git</code> directory check, deployment prevention notes, incident-response tie-in, Claude audit prompts, and reel-index entries.</td></tr>
