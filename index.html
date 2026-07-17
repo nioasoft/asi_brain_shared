@@ -470,7 +470,11 @@
 
   <p style="margin: 1rem 0 0.6rem; font-size: 0.82rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">Part VIII — Operational Knowledge</p>
   <ol start="12">
-    <li><a href="#bot-patterns">Bot code-quality patterns we&rsquo;ve learned</a></li>
+    <li><a href="#bot-patterns">Bot code-quality patterns we&rsquo;ve learned</a>
+      <ol>
+        <li><a href="#solid-debugging">12.1 SOLID as a debugging lens</a></li>
+      </ol>
+    </li>
     <li><a href="#prompts">Reusable prompts (copy-paste)</a></li>
   </ol>
   <ol start="17">
@@ -4099,6 +4103,64 @@ npx skills add https://github.com/Leonxlnx/taste-skill</code></pre>
   <td>On bot startup, always backfill from the last seen message ID forward. <strong>Still not implemented</strong> — add this when next touching the copier bots.</td>
 </tr>
 </table>
+
+<h3 id="solid-debugging">12.1 SOLID as a debugging lens</h3>
+
+<p>Source: IG reel <code>DaxrQVmgKn0</code> (2026-07-17, @kulstech). SOLID is often taught as abstract OOP theory, but the useful Asi version is a <strong>debugging and refactoring checklist</strong>: when a bug fix in one place breaks three others, inspect whether the code violates one of these five principles.</p>
+
+<table>
+<tr><th>Principle</th><th>Bug smell</th><th>Debug/refactor move</th></tr>
+<tr>
+  <td><strong>S — Single Responsibility</strong></td>
+  <td>One class/module handles user data, sends emails, writes logs, calculates business rules, and talks to APIs; every change has surprise side effects.</td>
+  <td>Split by reason-to-change: validation, persistence, notification, logging, pricing/risk logic, API adapter. Test each separately.</td>
+</tr>
+<tr>
+  <td><strong>O — Open/Closed</strong></td>
+  <td>Adding a new provider/strategy/status requires editing old working code and risks regressions in existing paths.</td>
+  <td>Add extension points: strategy objects, handler maps, adapters, plugins, or config-driven branches. Extend behavior without rewriting the stable core.</td>
+</tr>
+<tr>
+  <td><strong>L — Liskov Substitution</strong></td>
+  <td>A subclass/implementation technically matches the type but violates expectations: different units, hidden side effects, narrower input range, different error behavior.</td>
+  <td>Write contract tests for the parent/interface. Any implementation must pass the same invariants and error semantics.</td>
+</tr>
+<tr>
+  <td><strong>I — Interface Segregation</strong></td>
+  <td>Implementations are forced to stub methods they do not support, or callers depend on a giant service just to use one method.</td>
+  <td>Split large interfaces into focused capabilities: readable, writable, price feed, notifier, repository, payment/refund, etc.</td>
+</tr>
+<tr>
+  <td><strong>D — Dependency Inversion</strong></td>
+  <td>High-level business logic imports concrete APIs/SDKs directly, making tests flaky and swaps painful.</td>
+  <td>Depend on abstractions/ports. Put SDK/database/exchange/email clients behind adapters; inject them in tests and production.</td>
+</tr>
+</table>
+
+<div class="note">
+<strong>Asi rule:</strong> do not “apply SOLID” as ceremony. Use it when debugging tangled code, when a feature change causes ripple failures, or before touching a module that has too many responsibilities. Start with the smallest split that makes the current bug easier to test.
+</div>
+
+<h4>Practical troubleshooting prompt</h4>
+<div class="copy-block">
+<pre><code>Use SOLID as a debugging lens on this bug/module.
+
+Context: [paste bug, failing test, or file list]
+
+1. Identify the smallest code area involved in the bug.
+2. Check each SOLID principle only as it relates to the failure:
+   - Single Responsibility: which module has too many reasons to change?
+   - Open/Closed: did this feature require modifying stable old paths?
+   - Liskov: does any implementation violate the contract expected by callers?
+   - Interface Segregation: is any caller forced through a bloated interface?
+   - Dependency Inversion: is high-level logic coupled to low-level SDK/DB/API details?
+3. For each violation, cite file/function evidence.
+4. Recommend the smallest refactor that makes this bug easier to test and less likely to recur.
+5. Do not rewrite architecture. Prefer one narrow seam, adapter, contract test, or responsibility split.
+
+Output: principle | evidence | how it caused/risks bugs | minimal fix | test to add.</code></pre>
+</div>
+
 </div>
 </section>
 
@@ -4689,6 +4751,9 @@ function SearchBox() {
 
 <h3>14.9 Other (general / repos / commentary)</h3>
 
+<h4>SOLID principles as a debugging lens <span class="meta">(IG · 2026-07-17 · reel DaxrQVmgKn0 · @kulstech)</span></h4>
+<p>Captured SOLID not as abstract OOP theory but as a troubleshooting checklist for tangled code: Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion. Added an Asi-specific minimal-refactor rule and copy-paste debugging prompt at <a href="#solid-debugging">Section 12.1 — SOLID as a debugging lens</a>.</p>
+
 <h4>Karpathy&rsquo;s 7 AI workflow habits (X article) <span class="meta">(X · 2026-05-28 · @scottybeamio status 2059998232168571039)</span></h4>
 <p>Meta-advice on <em>how to use Claude Code itself</em>. 7 habits: context-over-prompts, 5-item CLAUDE.md, 3-layer system (raw/wiki/CLAUDE.md), save-permanently after good answers, index.md+log.md for &gt;1-week projects, brilliant-intern-on-short-leash workflow, HTML output trick. Full breakdown + Asi-specific mapping + CLAUDE.md template + /raw→/wiki concrete workflow + 5 ready prompts at <a href="#ai-workflow">Section 17 — Working with AI coding agents</a>.</p>
 
@@ -4938,6 +5003,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-07-17</td><td><strong>Added Section 12.1 — SOLID as a debugging lens.</strong> From IG reel DaxrQVmgKn0 (@kulstech). Captures SOLID as a practical troubleshooting/refactoring checklist for future tangled-code bugs, with principle-by-principle bug smells, minimal refactor moves, copy-paste debugging prompt, and reel-index entry.</td></tr>
 <tr><td>2026-07-17</td><td><strong>Added Section 9.11 — Hick&rsquo;s Law / choice overload.</strong> From IG reel DayWu1zy-qz (@synsation_, Build for Good UX Part 14). Captures the rule “reduce visible decisions, not capability,” with form/menu/dashboard/catalog examples, copy-paste audit prompt, series tracker update, and reel-index entry.</td></tr>
 <tr><td>2026-07-17</td><td><strong>Added Section 4.5 — Six documents before accepting payment.</strong> From IG reel Davh5IQjRBY (@mattmurphyai). Captures ToS, Privacy Policy, DPA, Refund Policy, MSA, and cyber liability insurance as a pre-payment readiness checklist for SaaS / AI products, with an Asi-specific apply/skip rule, copy-paste audit checklist, and reel-index entry.</td></tr>
 <tr><td>2026-07-10</td><td><strong>Added Section 8.11 — Session replay + rage-click observability.</strong> From IG reel DafuL1lggp3 (@mattmurphyai). Captures session replay, Sentry/PostHog replay-to-error correlation, rage/dead-click UX signals, privacy masking, sampling, use/skip decision rule, audit prompt, and reel-index entry. Renumbered Global latency playbook to Section 8.12.</td></tr>
