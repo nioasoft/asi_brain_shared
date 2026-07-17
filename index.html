@@ -439,6 +439,7 @@
         <li><a href="#ux-partial-states">9.8 Partial states &amp; graceful degradation (Part 9)</a></li>
         <li><a href="#ux-success-states">9.9 Success states &amp; confirmation feedback (Part 11)</a></li>
         <li><a href="#ux-jakobs-law">9.10 Jakob&rsquo;s Law across desktop, mobile, and RTL/LTR (Part 13)</a></li>
+        <li><a href="#ux-hicks-law">9.11 Hick&rsquo;s Law — reduce choices, not capability (Part 14)</a></li>
       </ol>
     </li>
   </ol>
@@ -3505,6 +3506,42 @@ Do not redesign for novelty. Preserve familiar patterns unless a measured
 context difference (mobile reach, RTL, locale convention) justifies changing it.</code></pre>
 </div>
 
+<h3 id="ux-hicks-law">9.11 Hick&rsquo;s Law — reduce choices, not capability (Part 14 — reel DayWu1zy-qz)</h3>
+
+<p>Hick&rsquo;s Law says the time it takes to make a decision increases with the number and complexity of choices. Source: IG reel <code>DayWu1zy-qz</code> (2026-07-17, @synsation_, Build for Good UX Part 14). The useful product lesson is not “remove features”; it is: <strong>show the next manageable choice at the right moment instead of dumping every option onto the screen at once.</strong></p>
+
+<h4>When this applies</h4>
+<ul>
+  <li><strong>Forms:</strong> if a form has more than ~7 meaningful fields, consider grouping it into steps/pages with progress and save state. Do not split tiny forms just to look fancy.</li>
+  <li><strong>Menus / navigation:</strong> avoid huge top-level menus. Keep a few primary categories visible, then let users filter/search/drill down.</li>
+  <li><strong>Dashboards:</strong> prioritize the 3–5 actions or signals users need first; hide advanced controls behind “Advanced”, filters, or secondary panels.</li>
+  <li><strong>Catalog/listing pages:</strong> do not show every possible option equally. Use recommendations, categories, filters, and progressive disclosure.</li>
+</ul>
+
+<h4>Asi rule</h4>
+<blockquote><strong>Reduce visible decisions per screen. Keep capability available, but sequence it.</strong></blockquote>
+
+<table>
+<tr><th>Bad default</th><th>Better pattern</th><th>Why</th></tr>
+<tr><td>One long onboarding/checkout/contact form</td><td>Step-by-step form when the field count is high, with progress + back/edit</td><td>Lower cognitive load; users make one small decision at a time.</td></tr>
+<tr><td>Mega menu with every page/tool/action</td><td>Few primary choices + search/filter/secondary nav</td><td>Prevents the user from scanning irrelevant options.</td></tr>
+<tr><td>Dashboard where every widget competes equally</td><td>Primary KPI/action first; advanced filters collapsed</td><td>Clarifies what the user should do now.</td></tr>
+<tr><td>Catalog homepage showing thousands of items</td><td>Curated rows/recommendations + filters/search</td><td>Like Netflix: the library is huge, but the starting choice is small.</td></tr>
+</table>
+
+<h4>Claude audit prompt</h4>
+<div class="copy-block">
+<pre><code>Audit this UI for Hick's Law / choice overload.
+
+For every screen, form, menu, dashboard, and listing page:
+1. Count the visible decisions/actions the user must evaluate before moving forward.
+2. Flag screens with too many equal-weight choices, long forms, mega menus, or cluttered dashboards.
+3. Recommend the smallest fix: grouping, progressive disclosure, step form, filters/search, recommendation rows, or collapsing advanced controls.
+4. Do NOT remove required capability; reduce what is visible at once and preserve access through the right secondary path.
+
+Output: screen | choice-overload evidence | user impact | smallest UX fix | risk.</code></pre>
+</div>
+
 <h4>Series tracker</h4>
 <table>
 <tr><th>Part</th><th>Topic</th><th>Status</th></tr>
@@ -3521,9 +3558,10 @@ context difference (mobile reach, RTL, locale convention) justifies changing it.
 <tr><td><strong>11</strong></td><td><strong>Success states &amp; confirmation feedback</strong></td><td><span class="pill ok">documented (9.9)</span></td></tr>
 <tr><td>12</td><td>Jakob&rsquo;s Law setup / teaser</td><td><span class="pill info">teased, watch for original</span></td></tr>
 <tr><td><strong>13</strong></td><td><strong>Jakob&rsquo;s Law across desktop, mobile, and RTL/LTR</strong></td><td><span class="pill ok">documented (9.10)</span></td></tr>
+<tr><td><strong>14</strong></td><td><strong>Hick&rsquo;s Law — reduce choices, not capability</strong></td><td><span class="pill ok">documented (9.11)</span></td></tr>
 </table>
 
-<p>If Asi finds the missing original Part 4, inline-spinners deep-dive, original Part 12, or later parts on the same creator&rsquo;s profile, send them and I&rsquo;ll add each here.</p>
+<p>If Asi finds the missing original Part 4, inline-spinners deep-dive, original Part 12, Part 15 progressive disclosure, or later parts on the same creator&rsquo;s profile, send them and I&rsquo;ll add each here.</p>
 </div>
 </section>
 
@@ -4584,6 +4622,9 @@ function SearchBox() {
 
 <h3>14.7 UX patterns</h3>
 
+<h4>Hick&rsquo;s Law / choice overload <span class="meta">(IG · 2026-07-17 · reel DayWu1zy-qz · @synsation_)</span></h4>
+<p>Build for Good UX Part 14: decision time increases with number/complexity of choices. Added Asi rule: reduce visible decisions per screen without removing capability; use step forms, filters/search, curated rows, and progressive disclosure. Full checklist + Claude audit prompt at <a href="#ux-hicks-law">Section 9.11 — Hick&rsquo;s Law</a>.</p>
+
 <h4>Success states &amp; confirmation feedback <span class="meta">(IG · 2026-06-13 · reel DZYfsYPv1-l · @synsation_)</span></h4>
 <p>Every meaningful user action needs observable success feedback; high-stakes actions need durable confirmation pages/panels, while low-risk interactions can use persistent inline state. Added checklist + Claude audit prompt at <a href="#ux-success-states">Section 9.9 — Success states &amp; confirmation feedback</a>.</p>
 
@@ -4897,6 +4938,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-07-17</td><td><strong>Added Section 9.11 — Hick&rsquo;s Law / choice overload.</strong> From IG reel DayWu1zy-qz (@synsation_, Build for Good UX Part 14). Captures the rule “reduce visible decisions, not capability,” with form/menu/dashboard/catalog examples, copy-paste audit prompt, series tracker update, and reel-index entry.</td></tr>
 <tr><td>2026-07-17</td><td><strong>Added Section 4.5 — Six documents before accepting payment.</strong> From IG reel Davh5IQjRBY (@mattmurphyai). Captures ToS, Privacy Policy, DPA, Refund Policy, MSA, and cyber liability insurance as a pre-payment readiness checklist for SaaS / AI products, with an Asi-specific apply/skip rule, copy-paste audit checklist, and reel-index entry.</td></tr>
 <tr><td>2026-07-10</td><td><strong>Added Section 8.11 — Session replay + rage-click observability.</strong> From IG reel DafuL1lggp3 (@mattmurphyai). Captures session replay, Sentry/PostHog replay-to-error correlation, rage/dead-click UX signals, privacy masking, sampling, use/skip decision rule, audit prompt, and reel-index entry. Renumbered Global latency playbook to Section 8.12.</td></tr>
 <tr><td>2026-06-20</td><td><strong>Expanded Section 15 — File storage architecture.</strong> From IG reel DZxfOW9xsFD (@mattmurphyai). Added CDN delivery + metadata-only database row framing, audit additions for blob/bytea columns and public-image CDN paths, plus reel-index entry.</td></tr>
