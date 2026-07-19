@@ -294,7 +294,7 @@
 <header>
   <h1>Security &amp; Code-Quality Reference</h1>
   <div class="subtitle">For Asi's Next.js client projects + crypto bot infrastructure</div>
-  <span class="updated">Last updated: 2026-07-10 · Living document — append new findings as we learn them</span>
+  <span class="updated">Last updated: 2026-07-19 · Living document — append new findings as we learn them</span>
 </header>
 
 <nav class="toc">
@@ -328,6 +328,7 @@
         <li><a href="#legal-compliance">4.3 Israel-specific notes</a></li>
         <li><a href="#legal-compliance">4.4 IP / Trademark check before you fall in love with a name</a></li>
         <li><a href="#legal-compliance">4.5 Six documents before accepting payment</a></li>
+        <li><a href="#legal-compliance">4.6 Enterprise/SOC 2 readiness before the first enterprise prospect</a></li>
       </ol>
     </li>
   </ol>
@@ -1267,6 +1268,33 @@ Output: URL/path | HTTP status | evidence | risk | exact fix.</code></pre>
 [ ] Cyber liability insurance considered once storing customer data at scale or serving paying businesses
 [ ] Lawyer review triggered for regulated data, minors, health/finance, cross-border, or enterprise deals</code></pre>
 </div>
+<h3>4.6 Enterprise/SOC 2 readiness before the first enterprise prospect</h3>
+
+<p>Source: IG reel <code>DZH8QLtxdCT</code> (2026-07-19). The useful point is not “go buy SOC 2 immediately.” The rule is: if a product may sell to enterprise customers, start collecting compliance evidence early, because the first serious buyer may ask for a SOC 2 report before procurement/security approval.</p>
+
+<div class="note">
+<strong>Asi rule:</strong> for simple marketing/client brochure sites, skip this. For SaaS, AI products, admin portals, B2B platforms, products with logins/customer data, or anything targeting enterprises: add “SOC 2 readiness” as an architecture/release requirement before outreach to bigger companies.
+</div>
+
+<ol>
+  <li><strong>Continuous compliance monitoring:</strong> connect the project&rsquo;s cloud, GitHub, Google Workspace/IdP, database/storage, and production systems to a compliance tool such as Vanta, Drata, or Secureframe when the enterprise path is real. The goal is evidence collection and drift alerts: who has access, what is encrypted, whether backups run, and whether critical settings changed.</li>
+  <li><strong>Automate evidence instead of spreadsheets:</strong> schedule access reviews, vulnerability scans, dependency/security alerts, patch SLAs, and backup-restore tests. Evidence should be generated from systems and logs, not reconstructed manually when a prospect asks.</li>
+  <li><strong>Start with SOC 2 Type I when sales pressure appears:</strong> Type I proves the controls are designed correctly at a point in time; Type II proves they operated effectively over months. For early-stage products, Type I can unblock enterprise conversations while the Type II observation period begins.</li>
+</ol>
+
+<div class="copy-block">
+<pre><code>Enterprise / SOC 2 readiness checklist
+[ ] Project classification checked: skip for simple marketing site; apply for SaaS/B2B/admin/customer-data product
+[ ] Asset/integration inventory exists: cloud, repo, database, storage, auth/IdP, email/workspace, CI/CD, vendors
+[ ] Access reviews scheduled quarterly for admins, production systems, repo, database, and workspace
+[ ] Vulnerability/dependency monitoring enabled (e.g. GitHub Dependabot/code scanning + monthly review)
+[ ] Patch SLA defined (example: critical/high vulnerabilities reviewed and patched within 30 days, faster for exploited issues)
+[ ] Backups configured AND restore test scheduled/logged, not just “backup enabled”
+[ ] Encryption, MFA, least-privilege, and audit logs documented for production systems
+[ ] Compliance platform considered when enterprise sales becomes a real target (Vanta / Drata / Secureframe)
+[ ] Decide Type I vs Type II timing before promising security/procurement answers to an enterprise prospect</code></pre>
+</div>
+
 </div>
 </section>
 
