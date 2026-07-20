@@ -15,7 +15,7 @@
 
 ---
 
-## Audit checklist (4 steps, ~30 min per project)
+## Audit checklist (4 steps, ~30–40 min per project)
 
 ### Step 1 — Dependency vulnerabilities (`npm audit`)
 
@@ -74,6 +74,33 @@ Any match that doesn't filter by `userId`/`ownerId` is suspicious — it returns
 - `DELETE /api/orders/42` from Bob's session — does it succeed? If yes, **FAIL**.
 
 **Fix pattern**: every database read/write inside a route should be scoped by the current user's session — never trust an ID from the URL or body on its own.
+
+---
+
+
+### Step 2b — API response surface audit (overexposure + enumerable IDs + versioning)
+
+**Goal**: Verify that endpoints return only what the client needs, do not leak sensitive/internal fields, and do not create brittle customer integrations. Source: IG reel `Da-xLx0GH9f` (2026-07-20, @mattmurphyai).
+
+**Why this matters**: An attacker may not need to hack the database. If `/api/users/:id` returns email, phone, billing address, roles, internal DB IDs, and nested relationships, a single JSON response already leaked the data. Sequential IDs make enumeration easier, and unversioned API responses become customer contracts you can accidentally break.
+
+**RUN (code review / grep targets)**:
+```bash
+# Find JSON-returning routes / handlers
+grep -rn "NextResponse.json\|Response.json\|res.json\|return .*json" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" .
+
+# Find common over-fetch patterns
+grep -rn "select:.*true\|include:.*true\|findMany\|findUnique\|SELECT \*" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" .
+```
+
+**Review every match**:
+- Is the route returning ORM/database objects directly? If yes, prefer an explicit DTO/serializer.
+- Are fields like `email`, `phone`, `billingAddress`, `role`, `isAdmin`, `internalId`, `tenantId`, or nested relationships actually needed by this screen?
+- Can User B change a URL/body ID and read User A's response? If yes, this is Step 2 IDOR → **CRITICAL**.
+- Are public IDs sequential/guessable? Use opaque public IDs (UUID/ULID/CUID) **plus** authorization checks. Opaque IDs reduce guessing; they do not replace authz.
+- Does any partner/customer integration depend on this JSON shape? If yes, add `/v1` and keep it stable before changing response fields.
+
+**Fix pattern**: define a minimal response schema per endpoint, strip everything the client does not need, keep object-level authorization on every read/write, and version external/customer APIs from day one.
 
 ---
 
@@ -144,6 +171,12 @@ Step 2 (auth boundaries / IDOR):
   - Routes checked: <count>
   - Suspicious routes (no ownership filter): [file:line, file:line, ...]
   - Manual test result (User A → User B): PASS / FAIL / NOT TESTED (login flow blocked test)
+
+Step 2b (API response surface):
+  - JSON endpoints checked: <count>
+  - Overexposed fields: [endpoint → field list]
+  - Direct ORM responses: [file:line, ...]
+  - Enumerable ID / versioning risk: NONE / FOUND (list)
 
 Step 3 (secrets):
   - .env tracked: NO / YES (rotate immediately)
