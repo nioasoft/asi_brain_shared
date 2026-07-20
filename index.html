@@ -294,7 +294,7 @@
 <header>
   <h1>Security &amp; Code-Quality Reference</h1>
   <div class="subtitle">For Asi's Next.js client projects + crypto bot infrastructure</div>
-  <span class="updated">Last updated: 2026-07-19 · Living document — append new findings as we learn them</span>
+  <span class="updated">Last updated: 2026-07-20 · Living document — append new findings as we learn them</span>
 </header>
 
 <nav class="toc">
@@ -320,7 +320,11 @@
         <li><a href="#step-8">2.8 Exposed <code>.git</code> directory check</a></li>
       </ol>
     </li>
-    <li><a href="#api-claims">OWASP-grounded API security claims (fact-checked)</a></li>
+    <li><a href="#api-claims">OWASP-grounded API security claims (fact-checked)</a>
+      <ol>
+        <li><a href="#api-surface-discipline">3.4 API response surface discipline</a></li>
+      </ol>
+    </li>
     <li><a href="#legal-compliance">Legal compliance for shipped apps (Privacy / ToS / CCPA / GDPR)</a>
       <ol>
         <li><a href="#legal-compliance">4.1 The 3-step checklist (~1 afternoon)</a></li>
@@ -1061,6 +1065,56 @@ Output: URL/path | HTTP status | evidence | risk | exact fix.</code></pre>
   <li>Raw stack traces leak: database engine + version, ORM + framework versions (CVE matching), file paths, library versions.</li>
   <li><strong>Mitigation:</strong> production returns a generic <code>500 Internal Server Error</code> + a request ID. Full trace goes to your logging system only (never to the client).</li>
 </ul>
+<h3 id="api-surface-discipline">Claim 4: "Every API endpoint is a product door — audit what walks out" <span class="meta">(IG · 2026-07-20 · reel Da-xLx0GH9f · @mattmurphyai)</span></h3>
+<p><span class="pill ok">TRUE — and especially relevant for AI-built APIs</span></p>
+<p>The reel&rsquo;s useful framing: an attacker often does not need to hack the database. If an endpoint returns everything the backend knows — internal IDs, emails, phone numbers, billing addresses, relationship objects, admin-only fields — the attacker only needs one API call and the ability to read JSON.</p>
+
+<table>
+<tr><th>Risk</th><th>What it looks like</th><th>Fix</th></tr>
+<tr>
+  <td><strong>Over-exposed responses</strong></td>
+  <td><code>/api/users/:id</code> returns email, phone, billing address, internal DB IDs, flags, roles, and nested relationships even though the client only needs a display name.</td>
+  <td>Use explicit DTO/serializer/response schemas. Return only the fields the current screen needs. Never ship ORM objects directly to the client.</td>
+</tr>
+<tr>
+  <td><strong>Enumerable IDs</strong></td>
+  <td>Sequential numeric IDs let someone try <code>/api/users/1</code>, <code>/api/users/2</code>, ... and build a customer list if authz is weak.</td>
+  <td>Use opaque public IDs (UUID/ULID/CUID) <em>and</em> object-level authorization. Opaque IDs reduce guessing; authz is still mandatory.</td>
+</tr>
+<tr>
+  <td><strong>Unversioned customer APIs</strong></td>
+  <td>A partner builds against today&rsquo;s JSON shape; next deploy renames/removes a field and their integration breaks.</td>
+  <td>Version from day one for external/partner APIs: keep <code>/v1</code> stable, add capabilities in <code>/v2</code>, and migrate customers on their timeline.</td>
+</tr>
+</table>
+
+<div class="note">
+<strong>Asi rule:</strong> for any SaaS, AI product, B2B platform, admin portal, integration API, or app with accounts/customer data, treat API response shape as part of the security and product review. For simple marketing sites with no authenticated API, skip the heavy versioning work but still avoid exposing unnecessary data from contact/admin endpoints.
+</div>
+
+<h4>Fast audit prompt</h4>
+<div class="copy-block">
+<pre><code>Audit every API endpoint in this project for response overexposure, enumerable identifiers, and versioning risk.
+
+1. List every route handler / server action / API controller that returns JSON.
+2. For each endpoint, report:
+   - request path and method
+   - authentication and authorization check
+   - response fields returned to the client
+   - whether it returns ORM/database objects directly
+   - whether it exposes internal IDs, emails, phone numbers, billing addresses, roles, flags, or relationship data
+   - whether IDs are sequential/guessable and whether object-level authorization still protects them
+   - whether external/partner/customer integrations depend on this response shape
+3. Flag:
+   - CRITICAL: other users&rsquo; data can be read by changing an ID
+   - HIGH: sensitive fields are returned but not needed by the UI
+   - MEDIUM: public/customer API has no versioning plan
+   - LOW: response is wider than needed but not sensitive
+4. Recommend the minimum safe response schema for each endpoint.
+
+Do not refactor yet. Produce a table: endpoint | current fields | unnecessary/sensitive fields | ID risk | versioning risk | fix.</code></pre>
+</div>
+
 </div>
 </section>
 
@@ -4292,6 +4346,9 @@ For each finding give file:line and a 1-line fix. Don't write code yet.</code></
 <h4>Six documents before accepting payment <span class="meta">(IG · 2026-07-17 · reel Davh5IQjRBY · @mattmurphyai)</span></h4>
 <p>Pre-payment legal/risk checklist for SaaS and AI products: ToS, Privacy Policy, DPA, Refund Policy, MSA, and cyber liability insurance. Added as an optional-but-important product readiness recommendation in <a href="#legal-compliance">Section 4.5 — Six documents before accepting payment</a>.</p>
 
+<h4>API response surface discipline <span class="meta">(IG · 2026-07-20 · reel Da-xLx0GH9f · @mattmurphyai)</span></h4>
+<p>Audit every endpoint as a product/security boundary: strip unnecessary response fields, avoid direct ORM-object JSON, protect against enumerable IDs with object-level authorization, and version external/customer APIs from day one. Added at <a href="#api-surface-discipline">Section 3 — Claim 4</a> and folded into the runbook.</p>
+
 <h4>OWASP ZAP before launch <span class="meta">(IG · 2026-06-20 · reel DZyEXA6vDXs · @mattmurphyai)</span></h4>
 <p>Run a baseline/passive OWASP ZAP scan before launch, triage Critical/High findings first, and keep the report as delivery evidence. Full workflow and Claude triage prompt at <a href="#step-7">Section 2.7 — OWASP ZAP pre-launch scan</a>.</p>
 
@@ -5031,6 +5088,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-07-20</td><td><strong>Added Section 3.4 — API response surface discipline.</strong> From IG reel Da-xLx0GH9f (@mattmurphyai). Captures endpoint overexposure, direct ORM-object responses, enumerable IDs, API-as-product review, versioning from day one, a copy-paste audit prompt, runbook update, and reel-index entry.</td></tr>
 <tr><td>2026-07-17</td><td><strong>Added Section 12.1 — SOLID as a debugging lens.</strong> From IG reel DaxrQVmgKn0 (@kulstech). Captures SOLID as a practical troubleshooting/refactoring checklist for future tangled-code bugs, with principle-by-principle bug smells, minimal refactor moves, copy-paste debugging prompt, and reel-index entry.</td></tr>
 <tr><td>2026-07-17</td><td><strong>Added Section 9.11 — Hick&rsquo;s Law / choice overload.</strong> From IG reel DayWu1zy-qz (@synsation_, Build for Good UX Part 14). Captures the rule “reduce visible decisions, not capability,” with form/menu/dashboard/catalog examples, copy-paste audit prompt, series tracker update, and reel-index entry.</td></tr>
 <tr><td>2026-07-17</td><td><strong>Added Section 4.5 — Six documents before accepting payment.</strong> From IG reel Davh5IQjRBY (@mattmurphyai). Captures ToS, Privacy Policy, DPA, Refund Policy, MSA, and cyber liability insurance as a pre-payment readiness checklist for SaaS / AI products, with an Asi-specific apply/skip rule, copy-paste audit checklist, and reel-index entry.</td></tr>
