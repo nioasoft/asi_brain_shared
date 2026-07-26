@@ -15,7 +15,7 @@
 
 ---
 
-## Audit checklist (4 steps, ~30–40 min per project)
+## Audit checklist (5 steps, ~30–45 min per project)
 
 ### Step 1 — Dependency vulnerabilities (`npm audit`)
 
@@ -102,6 +102,34 @@ grep -rn "select:.*true\|include:.*true\|findMany\|findUnique\|SELECT \*" --incl
 
 **Fix pattern**: define a minimal response schema per endpoint, strip everything the client does not need, keep object-level authorization on every read/write, and version external/customer APIs from day one.
 
+
+### Step 2c — Frontend trust boundary + abuse controls
+
+**Goal**: Catch the AI/vibe-coded pattern where the UI *appears* to enforce rules, but the backend actually trusts the browser.
+
+**Sources**: IG reels `DZhxVg2xu-u` and `DZySxo1AjkZ` (2026-07-26).
+
+**RUN (grep + review)**:
+```bash
+# Find client-side role/permission/plan checks that might need server enforcement
+grep -rEn "isAdmin|role|permission|can[A-Z]|plan|tier|price|discount|feature" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" .
+
+# Find route handlers / server actions that accept JSON. Confirm each validates and authorizes server-side.
+grep -rEn "await req\.json\(|NextResponse\.json|Response\.json|server action|use server" --include="*.ts" --include="*.tsx" .
+
+# Find public env vars. NEXT_PUBLIC_* ships to the browser; only truly public values belong here.
+grep -rEn "NEXT_PUBLIC_|PUBLIC_" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" --include="*.env*" .
+```
+
+**Review every match**:
+- Pricing, discounts, feature gates, role checks, permission checks, and access decisions must be enforced on the backend. Frontend checks are UX only.
+- Client-side validation is not security. Validate again in route handlers/server actions with shared schemas where possible.
+- Disabled buttons are not access control. Test direct `fetch()` calls against the endpoint.
+- Production bundles must not expose private API keys, internal endpoints, admin URLs, service-role keys, or config objects.
+- Paid/external API routes (OpenAI, Resend, Stripe, scraping, AI generation) need per-IP/user/API-key rate limits and an emergency IP/user block path.
+
+**Fix pattern**: frontend asks; backend decides. Add server-side authz + validation, move business rules server-side, clamp inputs, rate-limit paid routes, and keep a fast incident lever for blocking abusive IPs/users.
+
 ---
 
 ### Step 3 — Secrets hygiene (env vars + Git history)
@@ -151,6 +179,20 @@ If the project is opened in Claude Code, two built-in commands cover most of wha
 2. `/security-review` first — read the findings, ask Claude to fix the high-severity ones, commit.
 3. `/simplify` second — separate commit for code cleanup.
 4. **Both** of these run in cloud (paid). Use them for actual deliveries, not for every save.
+
+
+### Step 5 — Vibe-coded app quality pass (performance + UX)
+
+**Goal**: Catch non-security issues that make an AI-built app feel unfinished or collapse under real usage. Source: IG reel `DaBJZy8ovVY` (2026-07-26).
+
+**Review**:
+- Icon-only buttons need visible labels where practical, `aria-label`, keyboard focus, and tooltips.
+- Use optimistic UI only for safe high-confidence operations; never for payments/destructive work.
+- Every list endpoint needs pagination/cursors and hard `limit` caps.
+- Watch for N+1 database queries in pages/components/routes.
+- Long operations should be async/background jobs with status, retries, and idempotency instead of one synchronous request.
+
+**Report**: `issue | evidence file:line | user/security impact | smallest fix`.
 
 ---
 
