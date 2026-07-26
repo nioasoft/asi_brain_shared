@@ -848,6 +848,37 @@ file:line evidence, recommended action }.
 Don&rsquo;t change anything. Just the audit.</code></pre>
 </div>
 
+<h4>Vibe-coded app quality / security add-on (2026-07-26 reels)</h4>
+<p>Sources: IG reels <code>DaBJZy8ovVY</code> (@haydenschmitty), <code>DZhxVg2xu-u</code> (@mattmurphyai), and <code>DZySxo1AjkZ</code> (@patrickwithprospectflo). These are not separate from the audit above; they are the fast “AI built this app, what did it probably miss?” pass.</p>
+
+<table>
+<tr><th>Check</th><th>Why it matters</th><th>Minimum fix</th></tr>
+<tr><td><strong>Icon-only buttons</strong> without text labels/tooltips</td><td>Bad accessibility and discoverability. Users and screen readers cannot tell what the action does.</td><td>Add accessible labels, visible text where practical, and hover/focus tooltips for icon-only controls.</td></tr>
+<tr><td><strong>No optimistic UI</strong> for safe high-confidence actions</td><td>The app feels slower than it is.</td><td>Use optimistic updates only where rollback is low consequence: likes, toggles, drag/drop, local ordering. Do not use for payments/destructive actions.</td></tr>
+<tr><td><strong>No pagination / limits</strong> on list endpoints</td><td>Performance problem and resource-abuse risk.</td><td>Add page/cursor pagination, hard <code>limit</code> caps, authz filtering, and rate limits.</td></tr>
+<tr><td><strong>N+1 database queries</strong></td><td>Pages become slow/costly as data grows.</td><td>Batch, join/include intentionally, prefetch, or add query-level instrumentation before shipping.</td></tr>
+<tr><td><strong>Everything synchronous</strong></td><td>Slow UX, timeouts, duplicate submits, fragile external API calls.</td><td>Move long work to queues/background jobs; return job status/progress/idempotent responses.</td></tr>
+<tr><td><strong>Business/security rules in frontend</strong></td><td>Anyone can open DevTools and bypass pricing, role checks, feature gates, or disabled buttons.</td><td>Move pricing, permission, feature gating, and validation decisions to the backend. Frontend asks; backend decides.</td></tr>
+<tr><td><strong>Bundle exposes internals</strong></td><td><code>NEXT_PUBLIC_*</code>, config objects, routes, keys, and internal endpoints ship to the browser.</td><td>Run production build, inspect/search bundled JS for keys, internal URLs, admin endpoints, and config.</td></tr>
+<tr><td><strong>Abusable paid/external APIs</strong> with no IP/user controls</td><td>Bots can spam OpenAI/Resend/Stripe/etc. and run up bills or trigger compliance alerts.</td><td>Rate-limit all paid/external API routes, add per-IP/user/API-key counters, and support emergency IP/user blocking.</td></tr>
+</table>
+
+<div class="copy-block">
+<pre><code>Run a fast vibe-coded app hardening pass.
+
+Check:
+1. Icon-only buttons: labels, aria-labels, tooltips, keyboard focus.
+2. Safe optimistic UI opportunities and places where optimistic UI would be unsafe.
+3. List endpoints: pagination/cursor, hard page-size caps, authz filtering, rate limiting.
+4. N+1 query risks and repeated queries in loops/components.
+5. Long synchronous operations that should become background jobs/queues.
+6. Frontend trust boundary: pricing, role checks, feature gates, disabled-button logic, and validation must be enforced server-side.
+7. Production bundle exposure: search built assets for NEXT_PUBLIC secrets, API keys, internal endpoints, admin routes, and config objects.
+8. Paid/external API abuse: rate limits, per-user/IP quotas, idempotency, and emergency IP/user block path.
+
+Output: issue | evidence file:line | severity | smallest safe fix.</code></pre>
+</div>
+
 <h3 id="step-6">2.6 Leaked-secret incident response (rotate first, scrub second)</h3>
 
 <p>Source: IG reel <code>DXV91nNivPl</code> (2026-05-30). The DevOps interview scenario: <em>"you accidentally committed AWS keys to a public repo, ran <code>git revert</code> and pushed again — did that solve it?"</em> <strong>No</strong> — and the order of operations matters more than most teams realize.</p>
@@ -3628,6 +3659,35 @@ For every screen, form, menu, dashboard, and listing page:
 Output: screen | choice-overload evidence | user impact | smallest UX fix | risk.</code></pre>
 </div>
 
+<h3 id="ux-progressive-disclosure">9.12 Progressive disclosure — show the next needed thing, not every capability (Part 15 — reel DbFV7_6R8Rn)</h3>
+
+<p>Source: IG reel <code>DbFV7_6R8Rn</code> (2026-07-26, @synsation_, Build for Good UX Part 15). Progressive disclosure means the product keeps its full capability, but does not force the user to process it all at once. Like GPS: users do not want all 35 turns before leaving the driveway — they want the next turn at the right time.</p>
+
+<h4>Asi rule</h4>
+<blockquote><strong>Show what the user needs now. Keep advanced capability accessible through the next layer: slash menus, search, filters, “Advanced”, step-by-step flows, or contextual controls.</strong></blockquote>
+
+<table>
+<tr><th>Bad default</th><th>Better pattern</th><th>Why</th></tr>
+<tr><td>Huge dropdowns that require scrolling through every image/video/action type</td><td>Group by user goal, expose common actions first, add search/filter/drill-down</td><td>Users miss the option they need when everything competes equally.</td></tr>
+<tr><td>Every advanced setting visible on first load</td><td>Primary path first; advanced controls collapsed/contextual</td><td>Reduces cognitive load without removing power-user capability.</td></tr>
+<tr><td>Hidden critical feature buried several layers deep</td><td>Make the primary value/action visible; progressively disclose secondary layers only</td><td>Disclosure is not hiding. Core value must still be discoverable without a tutorial.</td></tr>
+<tr><td>Docs/admin/product UI with many object types and actions</td><td>Notion-style slash/search command surface: a clean canvas until the user asks for a block/action</td><td>Power stays available while the default interface remains calm.</td></tr>
+</table>
+
+<h4>Claude audit prompt</h4>
+<div class="copy-block">
+<pre><code>Audit this UI for progressive disclosure.
+
+For every screen, menu, form, dashboard, and creation flow:
+1. Identify all visible controls/options/actions on first load.
+2. Mark which ones are needed for the user's next likely step vs advanced/rare paths.
+3. Flag overloaded menus, huge dropdowns, cluttered dashboards, and forms that expose too many fields at once.
+4. Recommend the smallest progressive-disclosure fix: grouping, search, filters, slash command, step flow, contextual panel, or Advanced section.
+5. Do not bury the product's primary action/value so deep that a new user needs a tutorial.
+
+Output: screen | overloaded elements | next-step controls to keep visible | controls to disclose later | recommended fix | risk.</code></pre>
+</div>
+
 <h4>Series tracker</h4>
 <table>
 <tr><th>Part</th><th>Topic</th><th>Status</th></tr>
@@ -3645,9 +3705,10 @@ Output: screen | choice-overload evidence | user impact | smallest UX fix | risk
 <tr><td>12</td><td>Jakob&rsquo;s Law setup / teaser</td><td><span class="pill info">teased, watch for original</span></td></tr>
 <tr><td><strong>13</strong></td><td><strong>Jakob&rsquo;s Law across desktop, mobile, and RTL/LTR</strong></td><td><span class="pill ok">documented (9.10)</span></td></tr>
 <tr><td><strong>14</strong></td><td><strong>Hick&rsquo;s Law — reduce choices, not capability</strong></td><td><span class="pill ok">documented (9.11)</span></td></tr>
+<tr><td><strong>15</strong></td><td><strong>Progressive disclosure</strong></td><td><span class="pill ok">documented (9.12)</span></td></tr>
 </table>
 
-<p>If Asi finds the missing original Part 4, inline-spinners deep-dive, original Part 12, Part 15 progressive disclosure, or later parts on the same creator&rsquo;s profile, send them and I&rsquo;ll add each here.</p>
+<p>If Asi finds the missing original Part 4, inline-spinners deep-dive, original Part 12, later parts on the same creator&rsquo;s profile, send them and I&rsquo;ll add each here.</p>
 </div>
 </section>
 
