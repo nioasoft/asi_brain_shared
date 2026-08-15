@@ -445,6 +445,8 @@
         <li><a href="#ux-success-states">9.9 Success states &amp; confirmation feedback (Part 11)</a></li>
         <li><a href="#ux-jakobs-law">9.10 Jakob&rsquo;s Law across desktop, mobile, and RTL/LTR (Part 13)</a></li>
         <li><a href="#ux-hicks-law">9.11 Hick&rsquo;s Law — reduce choices, not capability (Part 14)</a></li>
+        <li><a href="#ux-progressive-disclosure">9.12 Progressive disclosure (Part 15)</a></li>
+        <li><a href="#ux-dark-mode">9.13 Dark Mode backgrounds — avoid pure black</a></li>
       </ol>
     </li>
   </ol>
@@ -3688,6 +3690,50 @@ For every screen, menu, form, dashboard, and creation flow:
 Output: screen | overloaded elements | next-step controls to keep visible | controls to disclose later | recommended fix | risk.</code></pre>
 </div>
 
+<h3 id="ux-dark-mode">9.13 Dark Mode backgrounds — avoid pure black</h3>
+
+<p>Source: IG reel <code>Db53N8fllD_</code> (2026-08-15, @hani.buskila). Practical design rule for AI-built dark-mode UIs: <strong>do not default to absolute black (<code>#000000</code>) unless the product deliberately needs an OLED/terminal aesthetic.</strong> Pure black usually feels flat, harsh, and disconnected from the brand.</p>
+
+<h4>Asi rule</h4>
+<blockquote><strong>Dark Mode should be a dark brand surface, not just black. Derive the background from the product&rsquo;s primary color: a very dark tone with a subtle tint from the brand palette.</strong></blockquote>
+
+<table>
+<tr><th>Bad default</th><th>Better pattern</th><th>Why</th></tr>
+<tr><td><code>#000000</code> everywhere</td><td>Use a near-black surface tinted by the brand color</td><td>Adds depth, cohesion, and a designed feel instead of a flat generated default.</td></tr>
+<tr><td>AI-generated generic dark UI</td><td>Ask explicitly for a brand-derived dark palette</td><td>AI tools tend to choose absolute black unless constrained.</td></tr>
+<tr><td>One dark background for all surfaces</td><td>Use surface levels: base, card, elevated, border, muted text</td><td>Depth comes from subtle contrast between layers, not from harsh white-on-black alone.</td></tr>
+</table>
+
+<h4>Palette starters from the reel</h4>
+<table>
+<tr><th>Name</th><th>Hex</th><th>Use when</th></tr>
+<tr><td>Midnight Green</td><td><code>#0D1F1E</code></td><td>Green/teal brands, calm SaaS/admin dashboards</td></tr>
+<tr><td>Charcoal Gray</td><td><code>#171717</code></td><td>Neutral products, when the brand color is weak or undefined</td></tr>
+<tr><td>Obsidian</td><td><code>#0B1215</code></td><td>Premium/technical feel, almost black but with depth</td></tr>
+<tr><td>Deep Navy Blue</td><td><code>#011222</code></td><td>Blue brands, fintech, dashboards, B2B products</td></tr>
+<tr><td>Dark Slate Gray</td><td><code>#0D1717</code></td><td>Neutral-cool interfaces, developer/admin products</td></tr>
+<tr><td>Oil Black</td><td><code>#090909</code></td><td>When you want very close to black but less dead than <code>#000000</code></td></tr>
+</table>
+
+<h4>Prompt to upgrade an AI-built dark mode</h4>
+<div class="copy-block">
+<pre><code>Audit this app's dark mode palette.
+
+Do not use pure black (#000000) as the default background unless there is a
+specific OLED/terminal-style reason. Derive the dark surfaces from the product's
+primary brand color.
+
+For every major screen/component:
+1. Identify current dark backgrounds, cards, borders, muted text, and primary accents.
+2. Replace pure black/default gray with a brand-tinted near-black palette.
+3. Define surface levels: base background, card surface, elevated surface, border,
+   muted text, primary text, accent/CTA.
+4. Check contrast for readability while preserving softer depth.
+5. Keep the result subtle: professional, calm, not colorful for its own sake.
+
+Output: current color | problem | replacement token/hex | affected components | contrast risk.</code></pre>
+</div>
+
 <h4>Series tracker</h4>
 <table>
 <tr><th>Part</th><th>Topic</th><th>Status</th></tr>
@@ -3706,6 +3752,7 @@ Output: screen | overloaded elements | next-step controls to keep visible | cont
 <tr><td><strong>13</strong></td><td><strong>Jakob&rsquo;s Law across desktop, mobile, and RTL/LTR</strong></td><td><span class="pill ok">documented (9.10)</span></td></tr>
 <tr><td><strong>14</strong></td><td><strong>Hick&rsquo;s Law — reduce choices, not capability</strong></td><td><span class="pill ok">documented (9.11)</span></td></tr>
 <tr><td><strong>15</strong></td><td><strong>Progressive disclosure</strong></td><td><span class="pill ok">documented (9.12)</span></td></tr>
+<tr><td>—</td><td><strong>Dark Mode backgrounds — avoid pure black</strong></td><td><span class="pill ok">documented (9.13)</span></td></tr>
 </table>
 
 <p>If Asi finds the missing original Part 4, inline-spinners deep-dive, original Part 12, later parts on the same creator&rsquo;s profile, send them and I&rsquo;ll add each here.</p>
