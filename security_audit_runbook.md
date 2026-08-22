@@ -181,18 +181,21 @@ If the project is opened in Claude Code, two built-in commands cover most of wha
 4. **Both** of these run in cloud (paid). Use them for actual deliveries, not for every save.
 
 
-### Step 5 — Vibe-coded app quality pass (performance + UX)
+### Step 5 — Vibe-coded app quality pass (accessibility + performance + UX)
 
-**Goal**: Catch non-security issues that make an AI-built app feel unfinished or collapse under real usage. Source: IG reel `DaBJZy8ovVY` (2026-07-26).
+**Goal**: Catch non-security issues that make an AI-built app inaccessible, legally risky, unfinished, or likely to collapse under real usage. Sources: IG reels `DaBJZy8ovVY` (2026-07-26) and `DbaxXyTgbRR` (2026-08-22, accessibility add-on).
 
 **Review**:
-- Icon-only buttons need visible labels where practical, `aria-label`, keyboard focus, and tooltips.
+- **Keyboard-only navigation**: every core flow must work with Tab/Shift+Tab, Enter, Space, Escape, and arrows where relevant. Focus must be visible; modals/menus must trap and release focus correctly.
+- **Screen-reader semantics**: images, buttons, links, forms, navigation, headings, status/error messages, and modals need useful labels/structure. Prefer native HTML before ARIA; add `aria-label`/`aria-describedby` only where needed.
+- **WCAG AA contrast**: normal text should be at least 4.5:1; large text/icons/key UI at least 3:1. Do not communicate state by color alone.
+- Icon-only buttons need visible labels where practical, `aria-label`, keyboard focus, and hover/focus tooltips.
 - Use optimistic UI only for safe high-confidence operations; never for payments/destructive work.
 - Every list endpoint needs pagination/cursors and hard `limit` caps.
 - Watch for N+1 database queries in pages/components/routes.
 - Long operations should be async/background jobs with status, retries, and idempotency instead of one synchronous request.
 
-**Report**: `issue | evidence file:line | user/security impact | smallest fix`.
+**Report**: `issue | evidence file:line | severity | user/security impact | smallest fix`.
 
 ---
 
