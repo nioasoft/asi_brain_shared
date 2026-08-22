@@ -850,11 +850,14 @@ file:line evidence, recommended action }.
 Don&rsquo;t change anything. Just the audit.</code></pre>
 </div>
 
-<h4>Vibe-coded app quality / security add-on (2026-07-26 reels)</h4>
-<p>Sources: IG reels <code>DaBJZy8ovVY</code> (@haydenschmitty), <code>DZhxVg2xu-u</code> (@mattmurphyai), and <code>DZySxo1AjkZ</code> (@patrickwithprospectflo). These are not separate from the audit above; they are the fast “AI built this app, what did it probably miss?” pass.</p>
+<h4>Vibe-coded app quality / security add-on (2026-07-26 reels; accessibility expanded 2026-08-22)</h4>
+<p>Sources: IG reels <code>DaBJZy8ovVY</code> (@haydenschmitty), <code>DZhxVg2xu-u</code> (@mattmurphyai), <code>DZySxo1AjkZ</code> (@patrickwithprospectflo), and <code>DbaxXyTgbRR</code> (@mattmurphyai). These are not separate from the audit above; they are the fast “AI built this app, what did it probably miss?” pass.</p>
 
 <table>
 <tr><th>Check</th><th>Why it matters</th><th>Minimum fix</th></tr>
+<tr><td><strong>Keyboard-only navigation</strong> across the whole app</td><td>Users who cannot use a mouse must still be able to reach and operate every core action. This is accessibility, usability, and legal-risk work.</td><td>Tab through every screen. Ensure every button, link, form field, dropdown, modal, menu, and custom control is reachable, has visible focus, and works with Enter/Escape/Space/arrow keys where appropriate.</td></tr>
+<tr><td><strong>Screen-reader compatibility</strong></td><td>Screen readers consume semantics, not screenshots. Unlabeled controls and unstructured forms become unusable.</td><td>Add meaningful alt text, associated form labels, button/link names, landmarks/headings, modal focus management, and ARIA only where native HTML is insufficient.</td></tr>
+<tr><td><strong>Color contrast below WCAG AA</strong></td><td>AI-generated palettes often look good visually but fail users with low vision or color blindness.</td><td>Audit text, buttons, placeholder text, errors, links, and disabled states. Fix normal text below <code>4.5:1</code> and large text below <code>3:1</code>; do not rely on color alone to communicate state.</td></tr>
 <tr><td><strong>Icon-only buttons</strong> without text labels/tooltips</td><td>Bad accessibility and discoverability. Users and screen readers cannot tell what the action does.</td><td>Add accessible labels, visible text where practical, and hover/focus tooltips for icon-only controls.</td></tr>
 <tr><td><strong>No optimistic UI</strong> for safe high-confidence actions</td><td>The app feels slower than it is.</td><td>Use optimistic updates only where rollback is low consequence: likes, toggles, drag/drop, local ordering. Do not use for payments/destructive actions.</td></tr>
 <tr><td><strong>No pagination / limits</strong> on list endpoints</td><td>Performance problem and resource-abuse risk.</td><td>Add page/cursor pagination, hard <code>limit</code> caps, authz filtering, and rate limits.</td></tr>
@@ -869,16 +872,19 @@ Don&rsquo;t change anything. Just the audit.</code></pre>
 <pre><code>Run a fast vibe-coded app hardening pass.
 
 Check:
-1. Icon-only buttons: labels, aria-labels, tooltips, keyboard focus.
-2. Safe optimistic UI opportunities and places where optimistic UI would be unsafe.
-3. List endpoints: pagination/cursor, hard page-size caps, authz filtering, rate limiting.
-4. N+1 query risks and repeated queries in loops/components.
-5. Long synchronous operations that should become background jobs/queues.
-6. Frontend trust boundary: pricing, role checks, feature gates, disabled-button logic, and validation must be enforced server-side.
-7. Production bundle exposure: search built assets for NEXT_PUBLIC secrets, API keys, internal endpoints, admin routes, and config objects.
-8. Paid/external API abuse: rate limits, per-user/IP quotas, idempotency, and emergency IP/user block path.
+1. Keyboard-only navigation: every core flow must work with Tab/Shift+Tab, Enter, Space, Escape, and arrows where relevant; focus must be visible and trapped/released correctly in modals.
+2. Screen-reader semantics: images, buttons, links, forms, navigation, headings, status/error messages, and modals must have useful labels/structure; prefer native HTML before ARIA.
+3. WCAG AA contrast: normal text >= 4.5:1, large text/icons/key UI >= 3:1, and state is not communicated by color alone.
+4. Icon-only buttons: labels, aria-labels, tooltips, keyboard focus.
+5. Safe optimistic UI opportunities and places where optimistic UI would be unsafe.
+6. List endpoints: pagination/cursor, hard page-size caps, authz filtering, rate limiting.
+7. N+1 query risks and repeated queries in loops/components.
+8. Long synchronous operations that should become background jobs/queues.
+9. Frontend trust boundary: pricing, role checks, feature gates, disabled-button logic, and validation must be enforced server-side.
+10. Production bundle exposure: search built assets for NEXT_PUBLIC secrets, API keys, internal endpoints, admin routes, and config objects.
+11. Paid/external API abuse: rate limits, per-user/IP quotas, idempotency, and emergency IP/user block path.
 
-Output: issue | evidence file:line | severity | smallest safe fix.</code></pre>
+Output: issue | evidence file:line | severity | user/security impact | smallest safe fix.</code></pre>
 </div>
 
 <h3 id="step-6">2.6 Leaked-secret incident response (rotate first, scrub second)</h3>
