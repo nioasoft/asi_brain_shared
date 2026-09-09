@@ -15,7 +15,7 @@
 
 ---
 
-## Audit checklist (5 steps, ~30–45 min per project)
+## Audit checklist (5 steps + OAuth add-on, ~30–45 min per project)
 
 ### Step 1 — Dependency vulnerabilities (`npm audit`)
 
@@ -129,6 +129,37 @@ grep -rEn "NEXT_PUBLIC_|PUBLIC_" --include="*.ts" --include="*.tsx" --include="*
 - Paid/external API routes (OpenAI, Resend, Stripe, scraping, AI generation) need per-IP/user/API-key rate limits and an emergency IP/user block path.
 
 **Fix pattern**: frontend asks; backend decides. Add server-side authz + validation, move business rules server-side, clamp inputs, rate-limit paid routes, and keep a fast incident lever for blocking abusive IPs/users.
+
+---
+
+### Step 2d — OAuth login: state + PKCE
+
+**Goal**: Verify OAuth login protects against both forged callbacks and authorization-code interception. Source: IG reel `DdB32a5lOZF` (2026-09-09, @mattmurphyai).
+
+**Rule**: `state` stops forged login responses / CSRF. **PKCE stops stolen authorization codes from becoming sessions.** Use both.
+
+**RUN / review**:
+```bash
+# Find OAuth implementations and confirm they use both state and PKCE
+grep -rEn "authorizationUrl|authorize|callback|code_challenge|code_verifier|pkce|state" \
+  --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" .
+```
+
+**Review every provider flow**:
+- Authorization redirect uses a fixed/allowlisted `redirect_uri`, not user-controlled input.
+- `state` is generated before redirect, stored securely, and validated on callback.
+- A high-entropy `code_verifier` is generated before redirect and never appears in the URL.
+- The authorization URL sends `code_challenge = base64url(sha256(code_verifier))` with `code_challenge_method=S256`.
+- The token exchange sends the original `code_verifier` together with the authorization code.
+- Verifier/state storage is server-side or httpOnly + sameSite; avoid `localStorage` for this proof material.
+
+**FAIL patterns**:
+- Callback exchanges `?code=...` for tokens without `code_verifier`.
+- `state` exists but no `code_verifier` / `code_challenge`.
+- `code_challenge` exists but method is missing or `plain` instead of `S256`.
+- Same OAuth client reused across dev/staging/prod without separation.
+
+**Fix pattern**: keep state validation, add PKCE, and treat `code_verifier` like proof-of-origin for the token exchange.
 
 ---
 
