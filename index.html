@@ -294,7 +294,7 @@
 <header>
   <h1>Security &amp; Code-Quality Reference</h1>
   <div class="subtitle">For Asi's Next.js client projects + crypto bot infrastructure</div>
-  <span class="updated">Last updated: 2026-07-20 · Living document — append new findings as we learn them</span>
+  <span class="updated">Last updated: 2026-09-09 · Living document — append new findings as we learn them</span>
 </header>
 
 <nav class="toc">
@@ -318,6 +318,7 @@
         <li><a href="#step-6">2.6 Leaked-secret incident response (rotate first, scrub second)</a></li>
         <li><a href="#step-7">2.7 OWASP ZAP pre-launch scan</a></li>
         <li><a href="#step-8">2.8 Exposed <code>.git</code> directory check</a></li>
+        <li><a href="#oauth-pkce">2.9 OAuth login: state + PKCE</a></li>
       </ol>
     </li>
     <li><a href="#api-claims">OWASP-grounded API security claims (fact-checked)</a>
@@ -697,6 +698,52 @@ Output a CSV-style table: table_name | rls_enabled | select_pol | insert_pol |
 update_pol | delete_pol | risk_level | one_line_recommendation.
 
 Don't write any SQL fixes yet. Just the audit report.</code></pre>
+</div>
+
+<h3 id="oauth-pkce">2.9 OAuth login: state + PKCE <span class="meta">(IG reel DdB32a5lOZF · @mattmurphyai · 2026-09-09)</span></h3>
+
+<p><strong>Goal:</strong> For any app using Google/GitHub/OAuth login, verify the flow protects against both request forgery and authorization-code interception. <code>state</code> and a locked redirect URL are necessary, but they do not replace <strong>PKCE</strong>.</p>
+
+<div class="note">
+<strong>Rule:</strong> <code>state</code> stops forged login responses / CSRF. <strong>PKCE stops stolen authorization codes from becoming sessions.</strong> AI-built auth flows often add <code>state</code> and skip PKCE; that is incomplete for mobile devices, shared networks, and compromised/intercepting browsers.
+</div>
+
+<h4>What the OAuth flow must do</h4>
+<ol>
+  <li><strong>Generate a high-entropy <code>code_verifier</code></strong> before redirecting to the provider. Store it server-side or in a secure, httpOnly, same-site session cookie. Do not put it in the URL.</li>
+  <li><strong>Hash it into a <code>code_challenge</code></strong> using SHA-256 + base64url, and send <code>code_challenge_method=S256</code> on the authorization request.</li>
+  <li><strong>Send the original <code>code_verifier</code></strong> only when exchanging the returned authorization code for tokens. The provider compares it to the challenge; a stolen code without the verifier cannot be exchanged.</li>
+  <li><strong>Keep <code>state</code> too.</strong> Validate it on callback to reject forged/cross-site responses. PKCE and state solve different problems.</li>
+</ol>
+
+<h4>Audit grep / review targets</h4>
+<div class="copy-block">
+<pre><code># Find OAuth implementations and confirm they use both state and PKCE
+grep -rEn "authorizationUrl|authorize|callback|code_challenge|code_verifier|pkce|state" \
+  --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" .
+
+# Red flags to investigate manually:
+# - callback exchanges ?code=... for tokens without code_verifier
+# - code_challenge exists but no code_challenge_method=S256
+# - state exists but no code_verifier / code_challenge
+# - one OAuth client reused across dev/staging/prod (see Section 8.3)</code></pre>
+</div>
+
+<h4>Copy-paste audit prompt</h4>
+<div class="copy-block">
+<pre><code>Audit this project's OAuth login flow for state + PKCE.
+
+For every Google/GitHub/OAuth provider flow, report:
+1. Where the authorization redirect is built.
+2. Whether redirect_uri is fixed/allowlisted and not user-controlled.
+3. Whether state is generated, stored securely, and validated on callback.
+4. Whether PKCE is implemented with a high-entropy code_verifier, S256 code_challenge,
+   and code_verifier sent during token exchange.
+5. Whether verifier/state storage is server-side or httpOnly + sameSite; flag localStorage.
+6. Evidence file:line for each answer.
+
+Output: provider | state PASS/FAIL | PKCE PASS/FAIL | evidence | smallest safe fix.
+Do not change code until I approve the fix.</code></pre>
 </div>
 
 <h3 id="step-3">2.3 Step 3 — Secrets hygiene</h3>
@@ -4931,6 +4978,9 @@ function SearchBox() {
 <h4>Forms — 6 rules to reduce friction <span class="meta">(IG · 2026-05-29 · reel DYyzrdpIixM · "Building with good UX" Part 6)</span></h4>
 <p>Disabled-with-reason buttons, inline validation onBlur, character counts, pre-fill, live password requirements, forgiving formatting. 6 rules + grep patterns + 12-line per-form checklist + audit prompt. See <a href="#ux-forms">Section 9.5 — Forms</a>.</p>
 
+<h4>OAuth state + PKCE for login flows <span class="meta">(IG · 2026-09-09 · reel DdB32a5lOZF · @mattmurphyai)</span></h4>
+<p>State stops forged login responses; PKCE stops stolen authorization codes from being exchanged into sessions. Added <a href="#oauth-pkce">Section 2.9 — OAuth login: state + PKCE</a>, with implementation checklist and audit prompt.</p>
+
 <h3>14.8 Architecture playbooks (system design reels)</h3>
 
 <h4>Pricing metrics, credits, and usage tracking <span class="meta">(IG · 2026-06-06 · reel DZP2LwegIXN · @mattmurphyai)</span></h4>
@@ -5202,6 +5252,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-09-09</td><td><strong>Added Section 2.9 — OAuth login: state + PKCE.</strong> From IG reel DdB32a5lOZF (@mattmurphyai). Captures the split: <code>state</code> stops forgery/CSRF, PKCE stops authorization-code interception. Includes OAuth audit grep, implementation checklist, and copy-paste audit prompt; runbook updated too.</td></tr>
 <tr><td>2026-07-20</td><td><strong>Added Section 3.4 — API response surface discipline.</strong> From IG reel Da-xLx0GH9f (@mattmurphyai). Captures endpoint overexposure, direct ORM-object responses, enumerable IDs, API-as-product review, versioning from day one, a copy-paste audit prompt, runbook update, and reel-index entry.</td></tr>
 <tr><td>2026-07-17</td><td><strong>Added Section 12.1 — SOLID as a debugging lens.</strong> From IG reel DaxrQVmgKn0 (@kulstech). Captures SOLID as a practical troubleshooting/refactoring checklist for future tangled-code bugs, with principle-by-principle bug smells, minimal refactor moves, copy-paste debugging prompt, and reel-index entry.</td></tr>
 <tr><td>2026-07-17</td><td><strong>Added Section 9.11 — Hick&rsquo;s Law / choice overload.</strong> From IG reel DayWu1zy-qz (@synsation_, Build for Good UX Part 14). Captures the rule “reduce visible decisions, not capability,” with form/menu/dashboard/catalog examples, copy-paste audit prompt, series tracker update, and reel-index entry.</td></tr>
