@@ -15,7 +15,7 @@
 
 ---
 
-## Audit checklist (5 steps + OAuth add-on, ~30–45 min per project)
+## Audit checklist (5 steps + OAuth/SQL add-ons, ~30–45 min per project)
 
 ### Step 1 — Dependency vulnerabilities (`npm audit`)
 
@@ -160,6 +160,38 @@ grep -rEn "authorizationUrl|authorize|callback|code_challenge|code_verifier|pkce
 - Same OAuth client reused across dev/staging/prod without separation.
 
 **Fix pattern**: keep state validation, add PKCE, and treat `code_verifier` like proof-of-origin for the token exchange.
+
+---
+
+### Step 2e — Raw SQL / Prisma escape-hatch audit
+
+**Goal**: Find every place an AI/codegen tool bypassed ORM protections for a complex join, search field, filter, or sort parameter. Source: IG reel `DdHBY76jE2o` (2026-09-09, @mattmurphyai).
+
+**Rule**: user input must be treated as **data**, never as part of the SQL command. Prefer Prisma/ORM safe methods; when raw SQL is truly needed, use safe parameterization and strict input validation.
+
+**RUN**:
+```bash
+# Prisma raw-query hotspots
+rg -n "\$queryRawUnsafe|\$executeRawUnsafe|\$queryRaw`|\$executeRaw`|Prisma\.sql|raw\(" .
+
+# String-built SQL / dynamic filters / user-controlled sort
+rg -n "SELECT .*\$\{|WHERE .*\$\{|ORDER BY .*\$\{|req\.query|searchParams|get\("   --glob '*.{ts,tsx,js,jsx}' .
+```
+
+**Review every match**:
+- Is any value derived from route params, query string, form input, JSON body, cookies, headers, or user profile data?
+- Does the code use safe parameterization (tagged template / `Prisma.sql` / query builder), or does it concatenate/interpolate strings?
+- Are search/filter/sort inputs validated before the DB layer by type, length, range, and enum allowlist?
+- Dynamic `ORDER BY`, column names, and table names must be mapped from hardcoded allowlists, never passed through raw.
+- Reject unexpected input; do not try to sanitize arbitrary SQL-shaped strings.
+
+**FAIL patterns**:
+- `$queryRawUnsafe` or `$executeRawUnsafe` with user-derived values.
+- Template/concatenated SQL like `` `... WHERE name LIKE '%${q}%'` ``.
+- Search fields with no length cap, e.g. 10,000 chars when 200 is valid.
+- Price/date/page filters accepted as free text.
+
+**Fix pattern**: standard ORM methods first; safe tagged raw queries only when necessary; boundary validation with Zod/yup/io-ts/manual parsing; allowlist sort/filter identifiers.
 
 ---
 
