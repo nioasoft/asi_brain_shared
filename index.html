@@ -319,6 +319,7 @@
         <li><a href="#step-7">2.7 OWASP ZAP pre-launch scan</a></li>
         <li><a href="#step-8">2.8 Exposed <code>.git</code> directory check</a></li>
         <li><a href="#oauth-pkce">2.9 OAuth login: state + PKCE</a></li>
+        <li><a href="#raw-sql-prisma">2.10 Raw SQL / Prisma escape-hatch audit</a></li>
       </ol>
     </li>
     <li><a href="#api-claims">OWASP-grounded API security claims (fact-checked)</a>
@@ -744,6 +745,56 @@ For every Google/GitHub/OAuth provider flow, report:
 
 Output: provider | state PASS/FAIL | PKCE PASS/FAIL | evidence | smallest safe fix.
 Do not change code until I approve the fix.</code></pre>
+</div>
+
+<h3 id="raw-sql-prisma">2.10 Raw SQL / Prisma escape-hatch audit <span class="meta">(IG reel DdHBY76jE2o · @mattmurphyai · 2026-09-09)</span></h3>
+
+<p><strong>Goal:</strong> Find every place an AI/codegen tool bypassed ORM protections for a complex join, search field, filter, or sort parameter. Prisma/ORM methods usually parameterize for you; raw SQL is the escape hatch where SQL injection comes back if user input is interpolated into the command.</p>
+
+<div class="note">
+<strong>Rule:</strong> user input must be treated as <em>data</em>, never as part of the SQL command. Prefer Prisma's safe tagged-template raw query APIs, typed query builders, or normal ORM methods. Reject unexpected input by type/length/allowlist before it reaches the database layer.
+</div>
+
+<h4>Audit grep / review targets</h4>
+<div class="copy-block">
+<pre><code># Prisma raw-query hotspots
+rg -n "\$queryRawUnsafe|\$executeRawUnsafe|\$queryRaw`|\$executeRaw`|Prisma\.sql|raw\(" .
+
+# String-built SQL / dynamic filters / user-controlled sort
+rg -n "SELECT .*\$\{|WHERE .*\$\{|ORDER BY .*\$\{|req\.query|searchParams|get\("   --glob '*.{ts,tsx,js,jsx}' .</code></pre>
+</div>
+
+<h4>What fails</h4>
+<ul>
+  <li><code>$queryRawUnsafe(`SELECT ... ${userInput}`)</code> or concatenated SQL strings.</li>
+  <li>User-controlled <code>ORDER BY</code>, column names, table names, filters, or search strings without an allowlist.</li>
+  <li>Search fields with no length cap; e.g. accepting 10,000 chars when 200 is the valid maximum.</li>
+  <li>Price/date/page filters accepted as free text instead of parsed numbers/dates/enums.</li>
+  <li>"Sanitize and hope" logic instead of rejecting unexpected input.</li>
+</ul>
+
+<h4>Safe fixes</h4>
+<ul>
+  <li>Use standard ORM methods first: <code>findMany</code>, <code>where</code>, <code>select</code>, <code>include</code>.</li>
+  <li>If raw SQL is truly needed, use tagged-template parameterization / <code>Prisma.sql</code>; avoid <code>$queryRawUnsafe</code> for user-derived values.</li>
+  <li>Validate at the boundary with Zod/yup/io-ts/manual parsing: type, length, range, enum allowlists.</li>
+  <li>For sort/filter keys, map public enum values to hardcoded SQL identifiers; never pass the raw key through.</li>
+</ul>
+
+<h4>Copy-paste audit prompt</h4>
+<div class="copy-block">
+<pre><code>Audit this project for raw SQL / ORM escape-hatch injection risk.
+
+1. Find every Prisma/ORM raw query and every SQL string construction site.
+2. For each, identify whether any value came from req.query, searchParams, route params,
+   form input, JSON body, cookies, headers, or user profile data.
+3. Check whether the query uses safe parameterization (tagged template / Prisma.sql / query builder)
+   or unsafe string concatenation / $queryRawUnsafe.
+4. Check input validation before the DB layer: type, length, range, enum allowlists.
+5. Pay special attention to search fields, filters, price ranges, pagination, and ORDER BY.
+
+Output: file:line | query purpose | user input source | safe/unsafe | severity | smallest safe fix.
+Do not edit code yet; report first.</code></pre>
 </div>
 
 <h3 id="step-3">2.3 Step 3 — Secrets hygiene</h3>
@@ -5252,6 +5303,7 @@ Don&rsquo;t change code. Just the audit.</code></pre>
 
 <table>
 <tr><th>Date</th><th>What changed</th></tr>
+<tr><td>2026-09-09</td><td><strong>Added Section 2.10 — Raw SQL / Prisma escape-hatch audit.</strong> From IG reel DdHBY76jE2o (@mattmurphyai). Captures SQL injection risk when AI bypasses ORM protections with raw SQL for complex joins/search/sort. Includes grep targets, validation requirements, safe Prisma patterns, and runbook update.</td></tr>
 <tr><td>2026-09-09</td><td><strong>Added Section 2.9 — OAuth login: state + PKCE.</strong> From IG reel DdB32a5lOZF (@mattmurphyai). Captures the split: <code>state</code> stops forgery/CSRF, PKCE stops authorization-code interception. Includes OAuth audit grep, implementation checklist, and copy-paste audit prompt; runbook updated too.</td></tr>
 <tr><td>2026-07-20</td><td><strong>Added Section 3.4 — API response surface discipline.</strong> From IG reel Da-xLx0GH9f (@mattmurphyai). Captures endpoint overexposure, direct ORM-object responses, enumerable IDs, API-as-product review, versioning from day one, a copy-paste audit prompt, runbook update, and reel-index entry.</td></tr>
 <tr><td>2026-07-17</td><td><strong>Added Section 12.1 — SOLID as a debugging lens.</strong> From IG reel DaxrQVmgKn0 (@kulstech). Captures SOLID as a practical troubleshooting/refactoring checklist for future tangled-code bugs, with principle-by-principle bug smells, minimal refactor moves, copy-paste debugging prompt, and reel-index entry.</td></tr>
