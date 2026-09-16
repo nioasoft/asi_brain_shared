@@ -15,7 +15,7 @@
 
 ---
 
-## Audit checklist (5 steps + OAuth/SQL add-ons, ~30–45 min per project)
+## Audit checklist (5 steps + OAuth/SQL/Next.js middleware add-ons, ~30–45 min per project)
 
 ### Step 1 — Dependency vulnerabilities (`npm audit`)
 
@@ -192,6 +192,40 @@ rg -n "SELECT .*\$\{|WHERE .*\$\{|ORDER BY .*\$\{|req\.query|searchParams|get\("
 - Price/date/page filters accepted as free text.
 
 **Fix pattern**: standard ORM methods first; safe tagged raw queries only when necessary; boundary validation with Zod/yup/io-ts/manual parsing; allowlist sort/filter identifiers.
+
+---
+
+### Step 2f — Next.js middleware auth bypass audit
+
+**Goal**: Catch the common AI-built pattern where auth is enforced only in `middleware.ts`, but API routes, server components, server actions, or path variants still return protected data. Source: IG reel `DdWeKvGDz5k` (2026-09-14, @mattmurphyai).
+
+**Rule**: middleware is a routing/convenience layer, not the sole authorization boundary. Every sensitive API route, server component, and server action must validate the session and authorize the requested object server-side.
+
+**RUN / review**:
+```bash
+# Find middleware matchers and server-side data entry points
+rg -n "export const config|matcher|middleware\(|NextResponse|auth\(|getServerSession|getSession|cookies\(|headers\(" \
+  --glob 'middleware.{ts,js}' --glob 'app/**/*.{ts,tsx,js,jsx}' --glob 'pages/**/*.{ts,tsx,js,jsx}' .
+
+# Find route handlers / server actions that need independent authz
+rg -n "export async function (GET|POST|PUT|PATCH|DELETE)|use server|server action|params\.|searchParams|req\.json\(" \
+  --glob '*.{ts,tsx,js,jsx}' .
+```
+
+**Review every protected route**:
+- Does `middleware.matcher` include pages **and** `/api` / route-handler paths that require auth? If API paths are excluded, direct API calls bypass the page-level check.
+- Test variants: trailing slash, encoded characters (`%2F`, double-encoding), path prefixes, and direct route-handler URLs. The protected data must not return on any variant.
+- Does middleware merely check “cookie exists”? That is not enough. Expired/forged cookies must be rejected by server-side session validation.
+- Do route handlers, server actions, and server components run their own `requireUser` / `requireRole` / ownership checks before reading or mutating data?
+- Does object-level auth still apply? `is logged in` is not enough for `/api/orders/:id`; scope by `userId`/tenant/owner.
+
+**FAIL patterns**:
+- Auth exists only in `middleware.ts`.
+- `matcher` protects `/dashboard/:path*` but not `/api/:path*` used by that dashboard.
+- Cookie presence check without verifying the session/JWT with the auth provider/session store.
+- Server components or route handlers fetching protected records without calling a server-side authz helper.
+
+**Fix pattern**: keep middleware for redirects and broad gating, but add server-side authorization to every route handler/server action/server component that touches protected data. Build a shared helper such as `requireUser()` / `requireTenantAccess()` and call it at the data boundary.
 
 ---
 
