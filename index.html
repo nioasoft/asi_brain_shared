@@ -294,7 +294,7 @@
 <header>
   <h1>Security &amp; Code-Quality Reference</h1>
   <div class="subtitle">For Asi's Next.js client projects + crypto bot infrastructure</div>
-  <span class="updated">Last updated: 2026-09-09 · Living document — append new findings as we learn them</span>
+  <span class="updated">Last updated: 2026-09-14 · Living document — append new findings as we learn them</span>
 </header>
 
 <nav class="toc">
@@ -320,6 +320,7 @@
         <li><a href="#step-8">2.8 Exposed <code>.git</code> directory check</a></li>
         <li><a href="#oauth-pkce">2.9 OAuth login: state + PKCE</a></li>
         <li><a href="#raw-sql-prisma">2.10 Raw SQL / Prisma escape-hatch audit</a></li>
+        <li><a href="#next-middleware-auth">2.11 Next.js middleware auth bypass audit</a></li>
       </ol>
     </li>
     <li><a href="#api-claims">OWASP-grounded API security claims (fact-checked)</a>
@@ -794,6 +795,56 @@ rg -n "SELECT .*\$\{|WHERE .*\$\{|ORDER BY .*\$\{|req\.query|searchParams|get\("
 5. Pay special attention to search fields, filters, price ranges, pagination, and ORDER BY.
 
 Output: file:line | query purpose | user input source | safe/unsafe | severity | smallest safe fix.
+Do not edit code yet; report first.</code></pre>
+</div>
+
+<h3 id="next-middleware-auth">2.11 Next.js middleware auth bypass audit <span class="meta">(IG reel DdWeKvGDz5k · @mattmurphyai · 2026-09-14)</span></h3>
+
+<p><strong>Goal:</strong> Catch the common AI-built pattern where authentication is enforced only in <code>middleware.ts</code>, but API routes, server components, server actions, or path variants still return protected data.</p>
+
+<div class="note">
+<strong>Rule:</strong> Next.js middleware is a convenience/routing layer, not the only authorization boundary. Keep it for redirects and broad gating, but validate the session and authorize the requested object <strong>server-side at every data boundary</strong>.
+</div>
+
+<h4>What to check</h4>
+<ul>
+  <li><strong>Matcher coverage:</strong> If <code>middleware.matcher</code> protects only pages such as <code>/dashboard/:path*</code> but excludes <code>/api/:path*</code>, a direct API call can bypass the page-level check.</li>
+  <li><strong>Path variants:</strong> Test trailing slashes, encoded characters such as <code>%2F</code>, double-encoding, and path prefixes. Protected data must not return on any route variation.</li>
+  <li><strong>Cookie validation:</strong> A cookie existing is not proof of login. Expired, forged, or tampered cookies must be rejected by server-side session/JWT verification.</li>
+  <li><strong>Independent server authz:</strong> Route handlers, server actions, and server components that read/write protected data must call a shared <code>requireUser()</code>, <code>requireRole()</code>, or tenant/owner access helper before touching the database.</li>
+  <li><strong>Object-level scope:</strong> Logged-in is not enough. Requests like <code>/api/orders/:id</code> must still filter/check by <code>userId</code>, tenant, organization, or owner.</li>
+</ul>
+
+<h4>Audit grep / review targets</h4>
+<div class="copy-block">
+<pre><code># Find middleware matchers and server-side data entry points
+rg -n "export const config|matcher|middleware\(|NextResponse|auth\(|getServerSession|getSession|cookies\(|headers\(" \
+  --glob 'middleware.{ts,js}' --glob 'app/**/*.{ts,tsx,js,jsx}' --glob 'pages/**/*.{ts,tsx,js,jsx}' .
+
+# Find route handlers / server actions that need independent authz
+rg -n "export async function (GET|POST|PUT|PATCH|DELETE)|use server|server action|params\.|searchParams|req\.json\(" \
+  --glob '*.{ts,tsx,js,jsx}' .</code></pre>
+</div>
+
+<h4>FAIL patterns</h4>
+<ul>
+  <li>Auth exists only in <code>middleware.ts</code>.</li>
+  <li>The matcher excludes APIs used by protected pages.</li>
+  <li>Middleware checks for a cookie name but never validates it against the auth provider/session store.</li>
+  <li>Server components or route handlers fetch protected records without a server-side authz helper.</li>
+</ul>
+
+<h4>Copy-paste audit prompt</h4>
+<div class="copy-block">
+<pre><code>Audit this Next.js project for middleware-only authentication bypasses.
+
+1. Read middleware.ts and report exactly which paths the matcher covers/excludes.
+2. List every route handler, server action, and server component that reads or mutates protected data.
+3. For each protected data boundary, verify it validates the session server-side and checks object ownership/tenant/role independently of middleware.
+4. Test or reason through direct API calls and path variants: trailing slash, encoded characters, double encoding, and route prefixes.
+5. Flag any cookie-presence-only check that does not verify the session/JWT with the auth provider or session store.
+
+Output: path | middleware covered? | server-side authn? | object-level authz? | bypass risk | smallest safe fix.
 Do not edit code yet; report first.</code></pre>
 </div>
 
