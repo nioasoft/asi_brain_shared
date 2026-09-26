@@ -296,6 +296,18 @@ If the project is opened in Claude Code, two built-in commands cover most of wha
 
 ---
 
+## Conditional security add-on — uploads, payment webhooks, stored XSS
+
+Source: [IG reel DduXRhLMJlJ](https://www.instagram.com/reel/DduXRhLMJlJ/) (reviewed 2026-09-26). Verify against [OWASP File Upload](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html), [Stripe signature verification](https://docs.stripe.com/webhooks/signature), and [OWASP XSS Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html). Only run the relevant checks when the project actually implements the feature; N/A is a valid result.
+
+1. **File uploads:** find upload endpoints, presigned-URL creation, storage policy, and download/preview routes. Confirm server-side type allowlist, byte-size cap, content/signature validation, generated filenames, non-executable storage, safe serving (`nosniff`), and owner authorization. A `.php`/`.jsp` blocklist or `accept=` attribute alone is not protection. Negative tests: disguised extension, mismatched content, oversize file, and another user's file URL.
+2. **Payment webhooks:** trace the route that grants entitlements or fulfills orders. Verify the provider's signature over the *raw* request body with the correct endpoint secret before trusting the event; reject invalid signatures, dedupe event IDs, and verify payment state/order association. Test a forged success event and a replayed legitimate event in test mode. A successful browser redirect is not payment confirmation. If Stripe is present, also follow the payments section of the shared HTML reference.
+3. **Stored XSS:** trace user-controlled comments, usernames, bios, and descriptions from writes through every HTML rendering path. Prefer framework auto-escaping and safe sinks such as `textContent`; do not interpolate untrusted data into `innerHTML` or script/event-handler contexts. Sanitize if rich HTML is deliberately supported; CSP is defense in depth. Test benign payloads in staging with test accounts only.
+
+**Report:** for each applicable path, include `file:line → trust boundary → current protection → negative-test outcome → fix`; do not assert a vulnerability merely from a grep match. The reel's takeover/lawsuit scenarios are possible outcomes, not guaranteed consequences.
+
+---
+
 ## Findings report format (for the auditing Claude)
 
 When you (the auditing Claude session) finish, return a report like this:
