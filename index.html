@@ -4410,6 +4410,17 @@ npx skills add https://github.com/Leonxlnx/taste-skill</code></pre>
   <li><a href="https://screenlane.com">Screenlane</a> — focused on web UI inspiration.</li>
   <li><a href="https://lapaninja.com">Lapa Ninja</a> — landing page inspiration.</li>
 </ul>
+
+<h3>11.6 Motion and component tools — choose by the actual design need</h3>
+<p>Source: <a href="https://www.instagram.com/reel/Ddj2iVGRY9R/">IG reel Ddj2iVGRY9R</a> (@sebastianhardy_). Names and scope checked against the official sites; these are options, not a stack to install on every project. The spoken &ldquo;Coconut UI&rdquo; and &ldquo;Backlit UI&rdquo; are <strong>Kokonut UI</strong> and <strong>Bklit UI</strong>.</p>
+<ul>
+  <li><a href="https://animejs.com/">Anime.js</a> — JavaScript animation engine with scroll observation, timelines and SVG tools. Use for authored, precisely sequenced motion; first check whether CSS is sufficient.</li>
+  <li><a href="https://motion.dev/">Motion</a> (formerly Framer Motion) — React/JavaScript/Vue animation for layout transitions, gestures, exit states and scroll. Good fit for React product UI; avoid adding two animation engines without a real need.</li>
+  <li><a href="https://kokonutui.com/">Kokonut UI</a> — 100+ open-source React/Tailwind/Motion components and templates with a shadcn registry. Browse examples and integrate selectively, adapting typography, accessibility and motion to the project rather than dropping in a generic collection.</li>
+  <li><a href="https://bklit.com/blocks">Bklit UI</a> — open-source charts and data-visualization blocks for dashboards, plus a separate Studio. The chart components are MIT; the Studio is proprietary. The reel's &ldquo;17 kinds&rdquo; was not verified as a stable catalog count.</li>
+  <li><a href="https://manus.im/features/webapp">Manus web-app builder</a> — hosted AI service that can generate and deploy a site or dashboard from a brief. Unlike the libraries above, it is a platform/workflow choice: prototype there if useful, then independently review code, accessibility, data handling, authentication, billing, ownership and export before client production use.</li>
+</ul>
+<p><strong>Practical default:</strong> design from references first; use CSS for simple motion, choose Anime.js <em>or</em> Motion when interaction complexity warrants it, and add Kokonut/Bklit components only for a matching project. Respect <code>prefers-reduced-motion</code> and test performance on mobile.</p>
 </div>
 </section>
 
